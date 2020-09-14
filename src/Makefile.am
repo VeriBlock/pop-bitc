@@ -70,6 +70,13 @@ if BUILD_BITCASH_UTILS
   bin_PROGRAMS += bitcash-cli bitcash-tx
 endif
 
+### VeriBlock section start
+VBK_H = \
+  vbk/vbk.hpp
+
+### VeriBlock section end
+
+
 .PHONY: FORCE check-symbols check-security
 # bitcash core #
 BITCASH_CORE_H = \
@@ -457,6 +464,7 @@ bitcashd_SOURCES += bitcashd-res.rc
 endif
 
 bitcashd_LDADD = \
+  $(VERIBLOCK_POP_CPP_LIBS) \
   $(LIBBITCASH_SERVER) \
   $(LIBBITCASH_WALLET) \
   $(LIBBITCASH_COMMON) \
@@ -469,7 +477,7 @@ bitcashd_LDADD = \
   $(LIBMEMENV) \
   $(LIBSECP256K1)
 
-bitcashd_LDADD += $(BOOST_LIBS) $(BDB_LIBS) $(SSL_LIBS) $(CURL_LIBS) $(CRYPTO_LIBS) $(MINIUPNPC_LIBS) $(EVENT_PTHREADS_LIBS) $(EVENT_LIBS) $(ZMQ_LIBS) $(DL_LIBS)
+bitcashd_LDADD += $(BOOST_LIBS) $(BDB_LIBS) $(SSL_LIBS) $(CURL_LIBS) $(CRYPTO_LIBS) $(MINIUPNPC_LIBS) $(EVENT_PTHREADS_LIBS) $(EVENT_LIBS) $(ZMQ_LIBS) $(DL_LIBS) $(VERIBLOCK_POP_CPP_LIBS)
 
 # bitcash-cli binary #
 bitcash_cli_SOURCES = bitcash-cli.cpp
@@ -485,7 +493,8 @@ bitcash_cli_LDADD = \
   $(LIBBITCASH_CLI) \
   $(LIBUNIVALUE) \
   $(LIBBITCASH_UTIL) \
-  $(LIBBITCASH_CRYPTO)
+  $(LIBBITCASH_CRYPTO) \
+  $(VERIBLOCK_POP_CPP_LIBS)
 
 bitcash_cli_LDADD += $(BOOST_LIBS) $(SSL_LIBS) $(CRYPTO_LIBS) $(EVENT_LIBS)
 #
@@ -506,7 +515,8 @@ bitcash_tx_LDADD = \
   $(LIBBITCASH_COMMON) \
   $(LIBBITCASH_UTIL) \
   $(LIBBITCASH_CRYPTO) \
-   $(LIBSECP256K1)
+  $(LIBSECP256K1) \ 
+  $(VERIBLOCK_POP_CPP_LIBS)
 
 bitcash_tx_LDADD += $(BOOST_LIBS) $(CRYPTO_LIBS)
 #
@@ -576,7 +586,7 @@ include Makefile.leveldb.include
 endif
 
 if ENABLE_TESTS
-#include Makefile.test.include
+include Makefile.test.include
 endif
 
 if ENABLE_BENCH
