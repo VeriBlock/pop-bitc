@@ -18,37 +18,6 @@
 #include <script/sigcache.h>
 
 
-CPubKey GetAddressForNickname(std::string nick)
-{
-    return CPubKey();
-}
-
-bool SetNickname(const std::string& strName,const CPubKey address, uint256 hash)
-{
-    return true;
-}
-
-bool DeleteNickname(const std::string& strName,const CPubKey address)
-{
-    return true;
-}
-
-std::string GetNicknameForAddress(CPubKey address)
-{ 
-    std::string str="";
-    return str;
-}
-
-uint256 GetHashForNickname(std::string nick)
-{
-    return uint256S("0x0");
-}
-
-uint256 GetHashForAddress(CPubKey address)
-{
-    return uint256S("0x0");
-}
-
 void CConnmanTest::AddNode(CNode& node)
 {
     LOCK(g_connman->cs_vNodes);

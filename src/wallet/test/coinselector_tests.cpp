@@ -1,6 +1,7 @@
 // Copyright (c) 2017 The Bitcash Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
+#ifdef DISABLE_TESTS
 
 #include "wallet/wallet.h"
 #include "wallet/coinselection.h"
@@ -573,3 +574,5 @@ BOOST_AUTO_TEST_CASE(SelectCoins_test)
 }
 
 BOOST_AUTO_TEST_SUITE_END()
+
+#endif

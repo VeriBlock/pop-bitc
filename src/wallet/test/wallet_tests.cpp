@@ -1,6 +1,7 @@
 // Copyright (c) 2012-2017 The Bitcash Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
+#ifdef DISABLE_TESTS
 
 #include <wallet/wallet.h>
 
@@ -364,3 +365,5 @@ BOOST_FIXTURE_TEST_CASE(ListCoins, ListCoinsTestingSetup)
 }
 
 BOOST_AUTO_TEST_SUITE_END()
+
+#endif
