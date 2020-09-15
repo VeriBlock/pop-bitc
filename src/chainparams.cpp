@@ -146,6 +146,10 @@ public:
         consensus.DEACTIVATEPRICESERVERS = 1598083200;//Time of fork to deactivate the price servers
  
 
+        // VeriBlock
+        // TODO: should determine the correct height
+        //consensus.VeriBlockPopSecurityHeight = -1;
+
         // The best chain should have at least this much work.                                                
         consensus.nMinimumChainWork = uint256S("0x00");
 
@@ -379,6 +383,10 @@ public:
         consensus.DEACTIVATEDOLLAR = 1592915126;//Time of fork to deactivate new Dollar transactions 
         consensus.DEACTIVATEPRICESERVERS = 1596702228;//Time of fork to deactivate the price servers
 
+        // VeriBlock
+        // TODO: should determine the correct height
+        // consensus.VeriBlockPopSecurityHeight = -1;
+
         // The best chain should have at least this much work.
         consensus.nMinimumChainWork = uint256S("0x00");
 
@@ -557,6 +565,10 @@ public:
         consensus.DEACTIVATEDOLLAR = 1592915126;//Time of fork to deactivate new Dollar transactions 
         consensus.DEACTIVATEPRICESERVERS = 1596702228;//Time of fork to deactivate the price servers
 
+        // VeriBlock
+        // TODO: should determine the correct height
+        // consensus.VeriBlockPopSecurityHeight = -1;
+
         // The best chain should have at least this much work.
         consensus.nMinimumChainWork = uint256S("0x00");
 
@@ -573,10 +585,11 @@ public:
         genesis = CreateGenesisBlock(1546865679, 2, 0x207fffff, 24, 1, 21500 * MILLICOIN, "a34b335c0124bd7c0100000000", "MEQCIEiAA0H7qfQ0Y5A9vHP96pUz8SLQXxW1vsMf+39Wrs+6AiA56R3hoKHjlfivLWtu2QXXW7A6dCxLeBrKjnUqEvfnig==");
         consensus.hashGenesisBlock = genesis.GetHash();
 
-//        std::cout << "REGTEST bitcash new hashGenesisBlock hash: " << genesis.GetHash().ToString() << std::endl;
+        std::cout << "REGTEST bitcash new hashGenesisBlock hash: " << genesis.GetHash().ToString() << std::endl;
+        std::cout << "REGTEST bitcash new hashMerkleRoot hash: " << genesis.hashMerkleRoot.ToString() << std::endl;
 
-        assert(consensus.hashGenesisBlock == uint256S("0x0f9188f13cb7b2c71f2a335e3a4fc328bf5beb436012afca590b1a11466e2206"));
-        assert(genesis.hashMerkleRoot == uint256S("0x4a5e1e4baab89f3a32518a88c31bc87f618f76673e2cc77ab2127b7afdeda33b"));
+        assert(consensus.hashGenesisBlock == uint256S("0xf9febdd2779e5dea572b8c7fa548c208d2a3d9a26c3d680af03fb5a52559b401"));
+        assert(genesis.hashMerkleRoot == uint256S("0xaac1dca23e43e68fe32133292a4698f42f60a48e5321bef9bda0c95f3580b667"));
 
         vFixedSeeds.clear(); //!< Regtest mode doesn't have any fixed seeds.
         vSeeds.clear();      //!< Regtest mode doesn't have any DNS seeds.
@@ -588,7 +601,7 @@ public:
 
         checkpointData = {
             {
-                {0, uint256S("0f9188f13cb7b2c71f2a335e3a4fc328bf5beb436012afca590b1a11466e2206")},
+                {0, uint256S("0xf9febdd2779e5dea572b8c7fa548c208d2a3d9a26c3d680af03fb5a52559b401")},
             }
         };
 

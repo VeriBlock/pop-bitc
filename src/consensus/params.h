@@ -101,6 +101,8 @@ struct Params {
     uint64_t X25XTIME;
     uint64_t DEACTIVATEDOLLAR;
     uint64_t DEACTIVATEPRICESERVERS;
+    // VeriBlock
+    uint64_t VeriBlockPopSecurityHeight;
 };
 } // namespace Consensus
 
