@@ -72,6 +72,9 @@ endif
 
 ### VeriBlock section start
 VBK_H = \
+  vbk/entity/context_info_container.hpp \
+  vbk/pop_service.hpp \
+  vbk/merkle.hpp \
   vbk/vbk.hpp
 
 ### VeriBlock section end
@@ -201,6 +204,8 @@ libbitcash_util_a-clientversion.$(OBJEXT): obj/build.h
 libbitcash_server_a_CPPFLAGS = $(AM_CPPFLAGS) $(BITCASH_INCLUDES) $(MINIUPNPC_CPPFLAGS) $(EVENT_CFLAGS) $(EVENT_PTHREADS_CFLAGS) $(CURL_CFLAGS)
 libbitcash_server_a_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
 libbitcash_server_a_SOURCES = \
+  vbk/pop_service.hpp \
+  vbk/pop_service.cpp \
   addrdb.cpp \
   addrman.cpp \
   bloom.cpp \
@@ -225,6 +230,8 @@ libbitcash_server_a_SOURCES = \
   policy/rbf.cpp \
   pow.cpp \
   rest.cpp \
+  vbk/merkle.hpp \
+  vbk/merkle.cpp \
   stratum.cpp \
   rpc/blockchain.cpp \
   rpc/mining.cpp \
