@@ -18,37 +18,6 @@
 #include <script/sigcache.h>
 
 
-CPubKey GetAddressForNickname(std::string nick)
-{
-    return CPubKey();
-}
-
-bool SetNickname(const std::string& strName,const CPubKey address, uint256 hash)
-{
-    return true;
-}
-
-bool DeleteNickname(const std::string& strName,const CPubKey address)
-{
-    return true;
-}
-
-std::string GetNicknameForAddress(CPubKey address)
-{ 
-    std::string str="";
-    return str;
-}
-
-uint256 GetHashForNickname(std::string nick)
-{
-    return uint256S("0x0");
-}
-
-uint256 GetHashForAddress(CPubKey address)
-{
-    return uint256S("0x0");
-}
-
 void CConnmanTest::AddNode(CNode& node)
 {
     LOCK(g_connman->cs_vNodes);
@@ -166,7 +135,7 @@ CBlock
 TestChain100Setup::CreateAndProcessBlock(const std::vector<CMutableTransaction>& txns, const CScript& scriptPubKey)
 {
     const CChainParams& chainparams = Params();
-    std::unique_ptr<CBlockTemplate> pblocktemplate = BlockAssembler(chainparams).CreateNewBlock(scriptPubKey);
+    std::unique_ptr<CBlockTemplate> pblocktemplate = BlockAssembler(chainparams).CreateNewBlockWithScriptPubKey(scriptPubKey, false);
     CBlock& block = pblocktemplate->block;
 
     // Replace mempool-selected txns with just coinbase plus passed-in txns:

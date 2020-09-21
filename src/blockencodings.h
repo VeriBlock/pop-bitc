@@ -144,6 +144,8 @@ protected:
 
 public:
     CBlockHeader header;
+    // VeriBlock data
+    altintegration::PopData popData;
 
     // Dummy for deserialization
     CBlockHeaderAndShortTxIDs() {}
@@ -183,6 +185,11 @@ public:
                 READWRITE(msb);
             }
         }
+
+        if (this->header.nVersion & VeriBlock::POP_BLOCK_VERSION_BIT) {
+            READWRITE(popData);
+        }
+
 
         READWRITE(prefilledtxn);
 

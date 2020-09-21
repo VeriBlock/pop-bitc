@@ -2642,7 +2642,9 @@ void static UpdateTip(const CBlockIndex *pindexNew, const CChainParams& chainPar
         for (int i = 0; i < 100 && pindex != nullptr; i++)
         {
             int32_t nExpectedVersion = ComputeBlockVersion(pindex->pprev, chainParams.GetConsensus());
-            if (pindex->nVersion > VERSIONBITS_LAST_OLD_BLOCK_VERSION && (pindex->nVersion & ~nExpectedVersion) != 0)
+            // do not expect this flag to be set
+            auto version = pindex->nVersion & (~VeriBlock::POP_BLOCK_VERSION_BIT);
+            if (pindex->nVersion > VERSIONBITS_LAST_OLD_BLOCK_VERSION && (version & ~nExpectedVersion) != 0)
                 ++nUpgraded;
             pindex = pindex->pprev;
         }
@@ -3576,6 +3578,14 @@ bool CheckBlock(const CBlock& block, CValidationState& state, const Consensus::P
         return false;
     }
 
+    // VeriBlock
+    if(block.nVersion & VeriBlock::POP_BLOCK_VERSION_BIT && block.popData.empty()) {
+        return state.DoS(100, false, REJECT_INVALID, "bad-block-pop-version", false, "POP bit is set, but pop data is empty");
+    }
+    if(!(block.nVersion & VeriBlock::POP_BLOCK_VERSION_BIT) && !block.popData.empty()) {
+        return state.DoS(100, false, REJECT_INVALID, "bad-block-pop-version", false, "POP bit is NOT set, and pop data is NOT empty");
+    }
+
     // Check the merkle root.
     if (fCheckMerkleRoot) {
         bool mutated;
@@ -4091,6 +4101,13 @@ static bool ContextualCheckBlockHeader(const CBlockHeader& block, CValidationSta
        (block.nVersion < 4 && nHeight >= consensusParams.BIP65Height))
             return state.Invalid(false, REJECT_OBSOLETE, strprintf("bad-version(0x%08x)", block.nVersion),
                                  strprintf("rejected nVersion=0x%08x block", block.nVersion));
+
+    // VeriBlock validation
+    if((block.nVersion & VeriBlock::POP_BLOCK_VERSION_BIT) && consensusParams.VeriBlockPopSecurityHeight > nHeight)
+    {
+        return state.Invalid(false, REJECT_OBSOLETE, strprintf("bad-pop-version(0x%08x)", block.nVersion),
+         strprintf("block contains PopData before PopSecurity has been enabled"));
+    }
 
     return true;
 }

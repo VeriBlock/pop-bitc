@@ -377,6 +377,12 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlockWithScriptPubKey(c
     int nDescendantsUpdated = 0;
     addPackageTxs(nPackagesSelected, nDescendantsUpdated);
 
+    // VeriBlock: add PopData into the block
+    pblock->nVersion |= VeriBlock::POP_BLOCK_VERSION_BIT;
+    if (!pblock->popData.atvs.empty() || !pblock->popData.context.empty() || !pblock->popData.vtbs.empty()) {
+        pblock->nVersion |= VeriBlock::POP_BLOCK_VERSION_BIT;
+    }
+
     nLastBlockTx = nBlockTx;
     nLastBlockWeight = nBlockWeight;
 
@@ -514,6 +520,12 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(interfaces::Walle
     int nPackagesSelected = 0;
     int nDescendantsUpdated = 0;
     addPackageTxs(nPackagesSelected, nDescendantsUpdated);
+
+    // VeriBlock: add PopData into the block
+    pblock->nVersion |= VeriBlock::POP_BLOCK_VERSION_BIT;
+    if (!pblock->popData.atvs.empty() || !pblock->popData.context.empty() || !pblock->popData.vtbs.empty()) {
+        pblock->nVersion |= VeriBlock::POP_BLOCK_VERSION_BIT;
+    }
 
     nLastBlockTx = nBlockTx;
     nLastBlockWeight = nBlockWeight;

@@ -2511,6 +2511,9 @@ bool static ProcessMessage(CNode* pfrom, const std::string& strCommand, CDataStr
                 status = tempBlock.FillBlock(*pblock, dummy);
                 if (status == READ_STATUS_OK) {
                     fBlockReconstructed = true;
+                    if(pblock && pblock->nVersion & VeriBlock::POP_BLOCK_VERSION_BIT) {
+                        assert(!pblock->popData.empty() && "POP bit is set and POP data is empty");
+                    }
                 }
             }
         } else {
@@ -2666,6 +2669,10 @@ bool static ProcessMessage(CNode* pfrom, const std::string& strCommand, CDataStr
         for (unsigned int n = 0; n < nCount; n++) {
             vRecv >> headers[n];
             ReadCompactSize(vRecv); // ignore tx count; assume it is 0.
+            if (headers[n].nVersion & VeriBlock::POP_BLOCK_VERSION_BIT) {
+                altintegration::PopData tmp;
+                vRecv >> tmp;
+            }
         }
 
         // Headers received via a HEADERS message should be valid, and reflect

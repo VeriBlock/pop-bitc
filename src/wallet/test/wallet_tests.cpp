@@ -1,6 +1,7 @@
 // Copyright (c) 2012-2017 The Bitcash Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
+#ifdef DISABLE_TESTS
 
 #include <wallet/wallet.h>
 
@@ -324,7 +325,7 @@ BOOST_FIXTURE_TEST_CASE(ListCoins, ListCoinsTestingSetup)
     BOOST_CHECK_EQUAL(list.begin()->second.size(), 1U);
 
     // Check initial balance from one mature coinbase transaction.
-    BOOST_CHECK_EQUAL(50 * COIN, wallet->GetAvailableBalance());
+    BOOST_CHECK_EQUAL(50 * COIN, wallet->GetAvailableBalance(0));
 
     // Add a transaction creating a change address, and confirm ListCoins still
     // returns the coin associated with the change address underneath the
@@ -364,3 +365,5 @@ BOOST_FIXTURE_TEST_CASE(ListCoins, ListCoinsTestingSetup)
 }
 
 BOOST_AUTO_TEST_SUITE_END()
+
+#endif

@@ -1,6 +1,7 @@
 // Copyright (c) 2017 The Bitcash Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
+#ifdef DISABLE_TESTS
 
 #include "wallet/wallet.h"
 #include "wallet/coinselection.h"
@@ -319,11 +320,11 @@ BOOST_AUTO_TEST_CASE(knapsack_solver_test)
         add_coin(30*CENT); // now we have 6+7+8+20+30 = 71 cents total
 
         // check that we have 71 and not 72
-        BOOST_CHECK( testWallet.SelectCoinsMinConf(71 * CENT, filter_confirmed, vCoins, setCoinsRet, nValueRet, coin_selection_params, bnb_used));
-        BOOST_CHECK(!testWallet.SelectCoinsMinConf(72 * CENT, filter_confirmed, vCoins, setCoinsRet, nValueRet, coin_selection_params, bnb_used));
+        BOOST_CHECK( testWallet.SelectCoinsMinConf(71 * CENT, filter_confirmed, vCoins, setCoinsRet, nValueRet, coin_selection_params, bnb_used, 0));
+        BOOST_CHECK(!testWallet.SelectCoinsMinConf(72 * CENT, filter_confirmed, vCoins, setCoinsRet, nValueRet, coin_selection_params, bnb_used, 0));
 
         // now try making 16 cents.  the best smaller coins can do is 6+7+8 = 21; not as good at the next biggest coin, 20
-        BOOST_CHECK( testWallet.SelectCoinsMinConf(16 * CENT, filter_confirmed, vCoins, setCoinsRet, nValueRet, coin_selection_params, bnb_used));
+        BOOST_CHECK( testWallet.SelectCoinsMinConf(16 * CENT, filter_confirmed, vCoins, setCoinsRet, nValueRet, coin_selection_params, bnb_used, 0));
         BOOST_CHECK_EQUAL(nValueRet, 20 * CENT); // we should get 20 in one coin
         BOOST_CHECK_EQUAL(setCoinsRet.size(), 1U);
 
@@ -573,3 +574,5 @@ BOOST_AUTO_TEST_CASE(SelectCoins_test)
 }
 
 BOOST_AUTO_TEST_SUITE_END()
+
+#endif
