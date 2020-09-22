@@ -73,7 +73,7 @@ endif
 ### VeriBlock section start
 VBK_H = \
   vbk/entity/context_info_container.hpp \
-  vbk/pop_service.hpp \
+  vbk/pop_common.hpp \
   vbk/merkle.hpp \
   vbk/vbk.hpp
 
@@ -204,8 +204,6 @@ libbitcash_util_a-clientversion.$(OBJEXT): obj/build.h
 libbitcash_server_a_CPPFLAGS = $(AM_CPPFLAGS) $(BITCASH_INCLUDES) $(MINIUPNPC_CPPFLAGS) $(EVENT_CFLAGS) $(EVENT_PTHREADS_CFLAGS) $(CURL_CFLAGS)
 libbitcash_server_a_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
 libbitcash_server_a_SOURCES = \
-  vbk/pop_service.hpp \
-  vbk/pop_service.cpp \
   addrdb.cpp \
   addrman.cpp \
   bloom.cpp \
@@ -230,8 +228,6 @@ libbitcash_server_a_SOURCES = \
   policy/rbf.cpp \
   pow.cpp \
   rest.cpp \
-  vbk/merkle.hpp \
-  vbk/merkle.cpp \
   stratum.cpp \
   rpc/blockchain.cpp \
   rpc/mining.cpp \
@@ -366,6 +362,8 @@ endif
 libbitcash_common_a_CPPFLAGS = $(AM_CPPFLAGS) $(BITCASH_INCLUDES)
 libbitcash_common_a_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
 libbitcash_common_a_SOURCES = \
+  vbk/pop_common.hpp \
+  vbk/pop_common.cpp \
   base58.cpp \
   bech32.cpp \
   chainparams.cpp \
@@ -415,6 +413,8 @@ libbitcash_common_a_SOURCES = \
   uint256.h \
   utilstrencodings.cpp \
   utilstrencodings.h \
+  vbk/merkle.hpp \
+  vbk/merkle.cpp \
   version.h \
   $(BITCASH_CORE_H)
 
