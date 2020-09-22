@@ -609,8 +609,7 @@ template<typename Stream> inline void Serialize(Stream& s, const altintegration:
 template<typename Stream> inline void Unserialize(Stream& s, altintegration::PopData& pop_data) {
     std::vector<uint8_t> bytes_data;
     Unserialize(s, bytes_data);
-    altintegration::ReadStream lib_stream(bytes_data);
-    pop_data = altintegration::PopData::fromVbkEncoding(lib_stream);
+    pop_data = altintegration::PopData::fromVbkEncoding(bytes_data);
 }
 
 /**

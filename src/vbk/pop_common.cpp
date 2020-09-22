@@ -3,17 +3,14 @@
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#include <memory>
-
-#include "vbk/pop_service.hpp"
-
+#include <vbk/pop_common.hpp>
 
 namespace VeriBlock {
 
-static std::shared_ptr<altintegration::Altintegration> app = nullptr;
+static std::shared_ptr<altintegration::PopContext> app = nullptr;
 static std::shared_ptr<altintegration::Config> config = nullptr;
 
-altintegration::Altintegration& GetPop()
+altintegration::PopContext& GetPop()
 {
     assert(app && "Altintegration is not initialized. Invoke SetPop.");
     return *app;
@@ -24,16 +21,13 @@ void SetPopConfig(const altintegration::Config& newConfig)
     config = std::make_shared<altintegration::Config>(newConfig);
 }
 
-void SetPop(CDBWrapper& db)
+void SetPop(std::shared_ptr<altintegration::PayloadsProvider>& db)
 {
     assert(config && "Config is not initialized. Invoke SetPopConfig");
-
-    // TODO implement Repository class
-    std::shared_ptr<altintegration::Repository> dbrepo = nullptr;
-    app = altintegration::Altintegration::create(config, dbrepo);
+    app = altintegration::PopContext::create(config, db);
 }
 
-std::string toPrettyString(const altintegration::Altintegration& pop)
+std::string toPrettyString(const altintegration::PopContext& pop)
 {
     return pop.altTree->toPrettyString();
 }

@@ -1298,6 +1298,10 @@ inline void static SendBlockTransactions(const CBlock& block, const BlockTransac
         }
         resp.txn[i] = block.vtx[req.indexes[i]];
     }
+
+    // VeriBlock: add popData
+    resp.popData = block.popData;
+
     LOCK(cs_main);
     const CNetMsgMaker msgMaker(pfrom->GetSendVersion());
     int nSendFlags = State(pfrom->GetId())->fWantsCmpctWitness ? 0 : SERIALIZE_TRANSACTION_NO_WITNESS;
@@ -2511,6 +2515,7 @@ bool static ProcessMessage(CNode* pfrom, const std::string& strCommand, CDataStr
                 status = tempBlock.FillBlock(*pblock, dummy);
                 if (status == READ_STATUS_OK) {
                     fBlockReconstructed = true;
+                    // VeriBlock: check for empty popData
                     if(pblock && pblock->nVersion & VeriBlock::POP_BLOCK_VERSION_BIT) {
                         assert(!pblock->popData.empty() && "POP bit is set and POP data is empty");
                     }

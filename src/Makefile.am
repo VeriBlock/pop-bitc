@@ -70,6 +70,16 @@ if BUILD_BITCASH_UTILS
   bin_PROGRAMS += bitcash-cli bitcash-tx
 endif
 
+### VeriBlock section start
+VBK_H = \
+  vbk/entity/context_info_container.hpp \
+  vbk/pop_service.hpp \
+  vbk/merkle.hpp \
+  vbk/vbk.hpp
+
+### VeriBlock section end
+
+
 .PHONY: FORCE check-symbols check-security
 # bitcash core #
 BITCASH_CORE_H = \
@@ -194,6 +204,8 @@ libbitcash_util_a-clientversion.$(OBJEXT): obj/build.h
 libbitcash_server_a_CPPFLAGS = $(AM_CPPFLAGS) $(BITCASH_INCLUDES) $(MINIUPNPC_CPPFLAGS) $(EVENT_CFLAGS) $(EVENT_PTHREADS_CFLAGS) $(CURL_CFLAGS)
 libbitcash_server_a_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
 libbitcash_server_a_SOURCES = \
+  vbk/pop_service.hpp \
+  vbk/pop_service.cpp \
   addrdb.cpp \
   addrman.cpp \
   bloom.cpp \
@@ -218,6 +230,8 @@ libbitcash_server_a_SOURCES = \
   policy/rbf.cpp \
   pow.cpp \
   rest.cpp \
+  vbk/merkle.hpp \
+  vbk/merkle.cpp \
   stratum.cpp \
   rpc/blockchain.cpp \
   rpc/mining.cpp \
@@ -457,6 +471,7 @@ bitcashd_SOURCES += bitcashd-res.rc
 endif
 
 bitcashd_LDADD = \
+  $(VERIBLOCK_POP_CPP_LIBS) \
   $(LIBBITCASH_SERVER) \
   $(LIBBITCASH_WALLET) \
   $(LIBBITCASH_COMMON) \
@@ -469,7 +484,7 @@ bitcashd_LDADD = \
   $(LIBMEMENV) \
   $(LIBSECP256K1)
 
-bitcashd_LDADD += $(BOOST_LIBS) $(BDB_LIBS) $(SSL_LIBS) $(CURL_LIBS) $(CRYPTO_LIBS) $(MINIUPNPC_LIBS) $(EVENT_PTHREADS_LIBS) $(EVENT_LIBS) $(ZMQ_LIBS) $(DL_LIBS)
+bitcashd_LDADD += $(BOOST_LIBS) $(BDB_LIBS) $(SSL_LIBS) $(CURL_LIBS) $(CRYPTO_LIBS) $(MINIUPNPC_LIBS) $(EVENT_PTHREADS_LIBS) $(EVENT_LIBS) $(ZMQ_LIBS) $(VERIBLOCK_POP_CPP_LIBS)  $(DL_LIBS)
 
 # bitcash-cli binary #
 bitcash_cli_SOURCES = bitcash-cli.cpp
@@ -485,7 +500,8 @@ bitcash_cli_LDADD = \
   $(LIBBITCASH_CLI) \
   $(LIBUNIVALUE) \
   $(LIBBITCASH_UTIL) \
-  $(LIBBITCASH_CRYPTO)
+  $(LIBBITCASH_CRYPTO) \
+  $(VERIBLOCK_POP_CPP_LIBS)
 
 bitcash_cli_LDADD += $(BOOST_LIBS) $(SSL_LIBS) $(CRYPTO_LIBS) $(EVENT_LIBS)
 #
@@ -503,12 +519,13 @@ endif
 
 bitcash_tx_LDADD = \
   $(LIBUNIVALUE) \
+  $(VERIBLOCK_POP_CPP_LIBS) \
   $(LIBBITCASH_COMMON) \
   $(LIBBITCASH_UTIL) \
   $(LIBBITCASH_CRYPTO) \
-   $(LIBSECP256K1)
+  $(LIBSECP256K1)
 
-bitcash_tx_LDADD += $(BOOST_LIBS) $(CRYPTO_LIBS)
+bitcash_tx_LDADD += $(BOOST_LIBS) $(VERIBLOCK_POP_CPP_LIBS) $(CRYPTO_LIBS)
 #
 
 CTAES_DIST =  crypto/ctaes/bench.c
@@ -576,7 +593,7 @@ include Makefile.leveldb.include
 endif
 
 if ENABLE_TESTS
-#include Makefile.test.include
+include Makefile.test.include
 endif
 
 if ENABLE_BENCH
