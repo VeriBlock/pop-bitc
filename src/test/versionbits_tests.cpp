@@ -246,6 +246,8 @@ BOOST_AUTO_TEST_CASE(versionbits_test)
     }
 }
 
+#ifdef ENABLE_TESTS
+
 BOOST_AUTO_TEST_CASE(versionbits_computeblockversion)
 {
     // Check that ComputeBlockVersion will set the appropriate bit correctly
@@ -350,5 +352,6 @@ BOOST_AUTO_TEST_CASE(versionbits_computeblockversion)
     //BOOST_CHECK_EQUAL(ComputeBlockVersion(lastBlock, mainnetParams) & VERSIONBITS_TOP_MASK, VERSIONBITS_TOP_BITS);
 }
 
+#endif // ENABLE_TESTS
 
 BOOST_AUTO_TEST_SUITE_END()

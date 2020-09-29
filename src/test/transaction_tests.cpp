@@ -92,6 +92,8 @@ std::string FormatScriptFlags(unsigned int flags)
 
 BOOST_FIXTURE_TEST_SUITE(transaction_tests, BasicTestingSetup)
 
+#ifdef ENABLE_TESTS
+
 BOOST_AUTO_TEST_CASE(tx_valid)
 {
     // Read tests from test/data/tx_valid.json
@@ -413,6 +415,8 @@ static void ReplaceRedeemScript(CScript& script, const CScript& redeemScript)
     script = PushAll(stack);
 }
 
+#endif // ENABLE_TESTS
+
 BOOST_AUTO_TEST_CASE(test_big_witness_transaction) {
     CMutableTransaction mtx;
     mtx.nVersion = 1;
@@ -492,6 +496,8 @@ BOOST_AUTO_TEST_CASE(test_big_witness_transaction) {
     threadGroup.interrupt_all();
     threadGroup.join_all();
 }
+
+#ifdef ENABLE_TESTS
 
 BOOST_AUTO_TEST_CASE(test_witness)
 {
@@ -758,5 +764,7 @@ BOOST_AUTO_TEST_CASE(test_IsStandard)
     t.vout[1].scriptPubKey = CScript() << OP_RETURN;
     BOOST_CHECK(!IsStandardTx(t, reason));
 }
+
+#endif // ENABLE_TESTS
 
 BOOST_AUTO_TEST_SUITE_END()

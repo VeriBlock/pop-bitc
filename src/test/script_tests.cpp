@@ -480,6 +480,8 @@ std::string JSONPrettyPrint(const UniValue& univalue)
 }
 } // namespace
 
+#ifdef ENABLE_TESTS
+
 BOOST_AUTO_TEST_CASE(script_build)
 {
     const KeyData keys;
@@ -997,6 +999,8 @@ BOOST_AUTO_TEST_CASE(script_json_test)
         DoTest(scriptPubKey, scriptSig, witness, scriptflags, strTest, scriptError, nValue);
     }
 }
+
+#endif // ENABLE_TESTS
 
 BOOST_AUTO_TEST_CASE(script_PushData)
 {

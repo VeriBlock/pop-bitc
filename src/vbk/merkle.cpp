@@ -6,7 +6,7 @@
 #include "consensus/merkle.h"
 #include "hash.h"
 #include "vbk/entity/context_info_container.hpp"
-#include "vbk/pop_context.hpp"
+#include "vbk/pop_common.hpp"
 
 #include "vbk/merkle.hpp"
 

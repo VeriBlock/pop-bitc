@@ -1,7 +1,6 @@
 // Copyright (c) 2012-2017 The Bitcash Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
-#ifdef DISABLE_TESTS
 
 #include <wallet/wallet.h>
 
@@ -35,6 +34,8 @@ static void AddKey(CWallet& wallet, const CKey& key)
 
 BOOST_FIXTURE_TEST_CASE(rescan, TestChain100Setup)
 {
+    #ifdef ENABLE_TESTS
+
     // Cap last block file size, and mine new block in a new block file.
     CBlockIndex* const nullBlock = nullptr;
     CBlockIndex* oldTip = chainActive.Tip();
@@ -108,6 +109,8 @@ BOOST_FIXTURE_TEST_CASE(rescan, TestChain100Setup)
                               0, oldTip->GetBlockTimeMax(), TIMESTAMP_WINDOW));
         RemoveWallet(&wallet);
     }
+
+    #endif // ENABLE_TESTS
 }
 
 // Verify importwallet RPC starts rescan at earliest block with timestamp
@@ -116,6 +119,8 @@ BOOST_FIXTURE_TEST_CASE(rescan, TestChain100Setup)
 // than or equal to key birthday.
 BOOST_FIXTURE_TEST_CASE(importwallet_rescan, TestChain100Setup)
 {
+    #ifdef ENABLE_TESTS
+
     // Create two blocks with same timestamp to verify that importwallet rescan
     // will pick up both blocks, not just the first.
     const int64_t BLOCK_TIME = chainActive.Tip()->GetBlockTimeMax() + 5;
@@ -169,6 +174,8 @@ BOOST_FIXTURE_TEST_CASE(importwallet_rescan, TestChain100Setup)
     }
 
     SetMockTime(0);
+
+    #endif // ENABLE_TESTS
 }
 
 // Check that GetImmatureCredit() returns a newly calculated value instead of
@@ -179,6 +186,8 @@ BOOST_FIXTURE_TEST_CASE(importwallet_rescan, TestChain100Setup)
 // debit functions.
 BOOST_FIXTURE_TEST_CASE(coin_mark_dirty_immature_credit, TestChain100Setup)
 {
+    #ifdef ENABLE_TESTS
+
     CWallet wallet("dummy", WalletDatabase::CreateDummy());
     CWalletTx wtx(&wallet, m_coinbase_txns.back());
     LOCK2(cs_main, wallet.cs_wallet);
@@ -194,6 +203,8 @@ BOOST_FIXTURE_TEST_CASE(coin_mark_dirty_immature_credit, TestChain100Setup)
     wtx.MarkDirty();
     wallet.AddKeyPubKey(coinbaseKey, coinbaseKey.GetPubKey());
     BOOST_CHECK_EQUAL(wtx.GetImmatureCredit(), 50*COIN);
+
+    #endif // ENABLE_TESTS
 }
 
 static int64_t AddTx(CWallet& wallet, uint32_t lockTime, int64_t mockTime, int64_t blockTime)
@@ -228,6 +239,8 @@ static int64_t AddTx(CWallet& wallet, uint32_t lockTime, int64_t mockTime, int64
 // expanded to cover more corner cases of smart time logic.
 BOOST_AUTO_TEST_CASE(ComputeTimeSmart)
 {
+    #ifdef ENABLE_TESTS
+
     // New transaction should use clock time if lower than block time.
     BOOST_CHECK_EQUAL(AddTx(m_wallet, 1, 100, 120), 100);
 
@@ -250,10 +263,14 @@ BOOST_AUTO_TEST_CASE(ComputeTimeSmart)
 
     // Reset mock time for other tests.
     SetMockTime(0);
+
+    #endif // ENABLE_TESTS
 }
 
 BOOST_AUTO_TEST_CASE(LoadReceiveRequests)
 {
+    #ifdef ENABLE_TESTS
+
     CTxDestination dest = CKeyID();
     LOCK(m_wallet.cs_wallet);
     m_wallet.AddDestData(dest, "misc", "val_misc");
@@ -264,7 +281,11 @@ BOOST_AUTO_TEST_CASE(LoadReceiveRequests)
     BOOST_CHECK_EQUAL(values.size(), 2U);
     BOOST_CHECK_EQUAL(values[0], "val_rr0");
     BOOST_CHECK_EQUAL(values[1], "val_rr1");
+
+    #endif // ENABLE_TESTS
 }
+
+#ifdef ENABLE_TESTS
 
 class ListCoinsTestingSetup : public TestChain100Setup
 {
@@ -364,6 +385,6 @@ BOOST_FIXTURE_TEST_CASE(ListCoins, ListCoinsTestingSetup)
     BOOST_CHECK_EQUAL(list.begin()->second.size(), 2U);
 }
 
-BOOST_AUTO_TEST_SUITE_END()
+#endif // ENABLE_TESTS
 
-#endif
+BOOST_AUTO_TEST_SUITE_END()

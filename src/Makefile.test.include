@@ -83,9 +83,6 @@ BITCASH_TESTS =\
   test/timedata_tests.cpp \
   test/torcontrol_tests.cpp \
   test/transaction_tests.cpp \
-  test/txindex_tests.cpp \
-  test/txvalidation_tests.cpp \
-  test/txvalidationcache_tests.cpp \
   test/versionbits_tests.cpp \
   test/uint256_tests.cpp \
   test/util_tests.cpp
@@ -93,9 +90,7 @@ BITCASH_TESTS =\
 if ENABLE_WALLET
 BITCASH_TESTS += \
   wallet/test/accounting_tests.cpp \
-  wallet/test/wallet_tests.cpp \
-  wallet/test/wallet_crypto_tests.cpp \
-  wallet/test/coinselector_tests.cpp
+  wallet/test/wallet_crypto_tests.cpp
 
 BITCASH_TEST_SUITE += \
   wallet/test/wallet_test_fixture.cpp \
@@ -156,11 +151,8 @@ bitcash_test_clean : FORCE
 	rm -f $(CLEAN_BITCASH_TEST) $(test_test_bitcash_OBJECTS) $(TEST_BINARY)
 
 check-local: $(BITCASH_TESTS:.cpp=.cpp.test)
-	@echo "Running test/util/bitcash-util-test.py..."
-	$(PYTHON) $(top_builddir)/test/util/bitcash-util-test.py
 	@echo "Running test/util/rpcauth-test.py..."
 	$(PYTHON) $(top_builddir)/test/util/rpcauth-test.py
-	$(AM_V_at)$(MAKE) $(AM_MAKEFLAGS) -C secp256k1 check
 if EMBEDDED_UNIVALUE
 	$(AM_V_at)$(MAKE) $(AM_MAKEFLAGS) -C univalue check
 endif

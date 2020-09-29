@@ -270,6 +270,7 @@ UtxoData::iterator FindRandomFrom(const std::set<COutPoint> &utxoSet) {
     return utxoDataIt;
 }
 
+#ifdef ENABLE_TESTS
 
 // This test is similar to the previous test
 // except the emphasis is on testing the functionality of UpdateCoins
@@ -854,5 +855,7 @@ BOOST_AUTO_TEST_CASE(ccoins_write)
                 for (char child_flags : child_value == ABSENT ? ABSENT_FLAGS : CLEAN_FLAGS)
                     CheckWriteCoins(parent_value, child_value, parent_value, parent_flags, child_flags, parent_flags);
 }
+
+#endif // ENABLE_TESTS
 
 BOOST_AUTO_TEST_SUITE_END()

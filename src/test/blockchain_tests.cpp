@@ -89,6 +89,8 @@ BOOST_AUTO_TEST_CASE(get_difficulty_for_null_tip)
     RejectDifficultyMismatch(difficulty, 1.0);
 }
 
+#ifdef ENABLE_TESTS
+
 /* Verify that if difficulty is based upon the block index
  * in the chain, if no block index is explicitly specified.
  */
@@ -103,6 +105,9 @@ BOOST_AUTO_TEST_CASE(get_difficulty_for_null_block_index)
 
     RejectDifficultyMismatch(difficulty, expected_difficulty);
 }
+
+#endif // ENABLE_TESTS
+
 
 /* Verify that difficulty is based upon the explicitly specified
  * block index rather than being taken from the provided chain,

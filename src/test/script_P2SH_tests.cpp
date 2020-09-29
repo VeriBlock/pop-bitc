@@ -48,6 +48,8 @@ Verify(const CScript& scriptSig, const CScript& scriptPubKey, bool fStrict, Scri
 
 BOOST_FIXTURE_TEST_SUITE(script_P2SH_tests, BasicTestingSetup)
 
+#ifdef ENABLE_TESTS
+
 BOOST_AUTO_TEST_CASE(sign)
 {
     LOCK(cs_main);
@@ -122,6 +124,8 @@ BOOST_AUTO_TEST_CASE(sign)
     }
 }
 
+#endif // ENABLE_TESTS
+
 BOOST_AUTO_TEST_CASE(norecurse)
 {
     ScriptError err;
@@ -148,6 +152,8 @@ BOOST_AUTO_TEST_CASE(norecurse)
     BOOST_CHECK(Verify(scriptSig2, p2sh2, true, err));
     BOOST_CHECK_MESSAGE(err == SCRIPT_ERR_OK, ScriptErrorString(err));
 }
+
+#ifdef ENABLE_TESTS
 
 BOOST_AUTO_TEST_CASE(set)
 {
@@ -204,6 +210,8 @@ BOOST_AUTO_TEST_CASE(set)
     }
 }
 
+#endif // ENABLE_TESTS
+
 BOOST_AUTO_TEST_CASE(is)
 {
     // Test CScript::IsPayToScriptHash()
@@ -254,6 +262,8 @@ BOOST_AUTO_TEST_CASE(switchover)
     BOOST_CHECK(!Verify(scriptSig, fund, true, err));
     BOOST_CHECK_MESSAGE(err == SCRIPT_ERR_EQUALVERIFY, ScriptErrorString(err));
 }
+
+#ifdef ENABLE_TESTS
 
 BOOST_AUTO_TEST_CASE(AreInputsStandard)
 {
@@ -365,5 +375,7 @@ BOOST_AUTO_TEST_CASE(AreInputsStandard)
     BOOST_CHECK(!::AreInputsStandard(txToNonStd2, coins));
     BOOST_CHECK_EQUAL(GetP2SHSigOpCount(txToNonStd2, coins), 20U);
 }
+
+#endif // ENABLE_TESTS
 
 BOOST_AUTO_TEST_SUITE_END()
