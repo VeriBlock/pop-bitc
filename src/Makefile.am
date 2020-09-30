@@ -73,8 +73,10 @@ endif
 ### VeriBlock section start
 VBK_H = \
   vbk/entity/context_info_container.hpp \
+  vbk/bootstraps.hpp \
   vbk/pop_common.hpp \
   vbk/merkle.hpp \
+  vbk/util.hpp \
   vbk/vbk.hpp
 
 ### VeriBlock section end
@@ -364,6 +366,7 @@ libbitcash_common_a_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
 libbitcash_common_a_SOURCES = \
   vbk/pop_common.hpp \
   vbk/pop_common.cpp \
+  vbk/bootstraps.cpp \
   base58.cpp \
   bech32.cpp \
   chainparams.cpp \

@@ -2517,7 +2517,7 @@ bool static ProcessMessage(CNode* pfrom, const std::string& strCommand, CDataStr
                     fBlockReconstructed = true;
                     // VeriBlock: check for empty popData
                     if(pblock && pblock->nVersion & VeriBlock::POP_BLOCK_VERSION_BIT) {
-                        assert(!pblock->popData.empty() && "POP bit is set and POP data is empty");
+                        VBK_ASSERT(!pblock->popData.empty() && "POP bit is set and POP data is empty");
                     }
                 }
             }

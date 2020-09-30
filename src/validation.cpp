@@ -3578,7 +3578,7 @@ bool CheckBlock(const CBlock& block, CValidationState& state, const Consensus::P
         return false;
     }
 
-    // VeriBlock
+    // VeriBlock: merkle root verification currently depends on a context, so it has been moved to ContextualCheckBlock
     if(block.nVersion & VeriBlock::POP_BLOCK_VERSION_BIT && block.popData.empty()) {
         return state.DoS(100, false, REJECT_INVALID, "bad-block-pop-version", false, "POP bit is set, but pop data is empty");
     }
