@@ -75,9 +75,12 @@ VBK_H = \
   vbk/entity/context_info_container.hpp \
   vbk/bootstraps.hpp \
   vbk/pop_common.hpp \
+  vbk/pop_service.hpp \
   vbk/merkle.hpp \
   vbk/util.hpp \
-  vbk/vbk.hpp
+  vbk/vbk.hpp \
+  vbk/adaptors/block_batch_adaptor.hpp \
+  vbk/adaptors/payloads_provider.hpp
 
 ### VeriBlock section end
 
@@ -206,6 +209,8 @@ libbitcash_util_a-clientversion.$(OBJEXT): obj/build.h
 libbitcash_server_a_CPPFLAGS = $(AM_CPPFLAGS) $(BITCASH_INCLUDES) $(MINIUPNPC_CPPFLAGS) $(EVENT_CFLAGS) $(EVENT_PTHREADS_CFLAGS) $(CURL_CFLAGS)
 libbitcash_server_a_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
 libbitcash_server_a_SOURCES = \
+  vbk/pop_service.hpp \
+  vbk/pop_service.cpp \
   addrdb.cpp \
   addrman.cpp \
   bloom.cpp \
