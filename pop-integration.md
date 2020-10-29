@@ -184,7 +184,7 @@ public:
 We should also update p2p networking objects such as CBlockHeaderAndShortTxIDs, BlockTransaction, PartiallyDownloadedBlock with the VeriBlock PopData for the correct broadcasting of the VeriBlock data to the network.
 
 ### Add new PopData filed into the BlockTransaction, CBlockHeaderAndShortTxIDs, PartiallyDownloadedBlock and update their serialization/deserialization.
-[<font style="color: red"> src/blockencodings.h </font>]
+[<font style="color: red"> src/blockencodings.h </font>]  
 _class BlockTransactions_
 ```diff
 // A BlockTransactions message
@@ -240,9 +240,9 @@ CTxMemPool* pool;
  };
 ```
 
-### Update PartiallyDownloadedBlock object initializing, to fill popData field.
+### Update PartiallyDownloadedBlock object initializing - fill PopData field.
+[<font style="color: red"> src/blockencodings.cpp </font>]  
 _method PartiallyDownloadedBlock::InitData_
-[<font style="color: red"> src/blockencodings.cpp </font>]
 ```diff
 -    LogPrint(BCLog::CMPCTBLOCK, "Initialized PartiallyDownloadedBlock for block %s using a cmpctblock of size %lu\n", cmpctblock.header.GetHash().ToString(), GetSerializeSize(cmpctblock, SER_NETWORK, PROTOCOL_VERSION));
 +    // VeriBlock: set pop data
@@ -272,3 +272,75 @@ _method PartiallyDownloadedBlock::FillBlock_
 +}
 ```
 
+## Also update setup of the PopData fields during the net processing.
+[<font style="color: red"> src/net_processing.cpp </font>]  
+_method SendBlockTransactions_
+```diff
+}
+         resp.txn[i] = block.vtx[req.indexes[i]];
+     }
++
++    // VeriBlock: add popData
++    resp.popData = block.popData;
++
+     LOCK(cs_main);
+     const CNetMsgMaker msgMaker(pfrom->GetSendVersion());
+     int nSendFlags = State(pfrom->GetId())->fWantsCmpctWitness ? 0 : SERIALIZE_TRANSACTION_NO_WITNESS;
+```
+_method ProcessMessage_
+```diff
+ status = tempBlock.FillBlock(*pblock, dummy);
+                 if (status == READ_STATUS_OK) {
+                     fBlockReconstructed = true;
++                    // VeriBlock: check for empty popData
++                    if(pblock && pblock->nVersion & VeriBlock::POP_BLOCK_VERSION_BIT) {
++                        VBK_ASSERT(!pblock->popData.empty() && "POP bit is set and POP data is empty");
++                    }
+                 }
+             }
+```
+_method ProcessMessage_
+```diff
+for (unsigned int n = 0; n < nCount; n++) {
+             vRecv >> headers[n];
+             ReadCompactSize(vRecv); // ignore tx count; assume it is 0.
++            if (headers[n].nVersion & VeriBlock::POP_BLOCK_VERSION_BIT) {
++                altintegration::PopData tmp;
++                vRecv >> tmp;
++            }
+         }
+```
+
+The last step is to update validation rules, add check that if block contains VeriBlock PopData, then block.nVersion must contain POP_BLOCK_VERSION_BIT. Otherwise block.nVersion should not contain POP_BLOCK_VERSION_BIT. 
+
+## Update CheckBlock function in the validation.cpp for this check.
+[<font style="color: red"> validation.cpp </font>]  
+_method UpdateTip_
+```diff
+         for (int i = 0; i < 100 && pindex != nullptr; i++)
+         {
+             int32_t nExpectedVersion = ComputeBlockVersion(pindex->pprev, chainParams.GetConsensus());
+-            if (pindex->nVersion > VERSIONBITS_LAST_OLD_BLOCK_VERSION && (pindex->nVersion & ~nExpectedVersion) != 0)
++            // do not expect this flag to be set
++            auto version = pindex->nVersion & (~VeriBlock::POP_BLOCK_VERSION_BIT);
++            if (pindex->nVersion > VERSIONBITS_LAST_OLD_BLOCK_VERSION && (version & ~nExpectedVersion) != 0)
+                 ++nUpgraded;
+             pindex = pindex->pprev;
+```
+_method CheckBlock_
+```diff
+         return false;
+     }
+
++    // VeriBlock: merkle root verification currently depends on a context, so it has been moved to ContextualCheckBlock
++    if(block.nVersion & VeriBlock::POP_BLOCK_VERSION_BIT && block.popData.empty()) {
++        return state.DoS(100, false, REJECT_INVALID, "bad-block-pop-version", false, "POP bit is set, but pop data is empty");
++    }
++    if(!(block.nVersion & VeriBlock::POP_BLOCK_VERSION_BIT) && !block.popData.empty()) {
++        return state.DoS(100, false, REJECT_INVALID, "bad-block-pop-version", false, "POP bit is NOT set, and pop data is NOT empty");
++    }
++
+     // Check the merkle root.
+     if (fCheckMerkleRoot) {
+         bool mutated;
+```
