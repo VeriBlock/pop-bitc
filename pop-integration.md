@@ -272,7 +272,7 @@ _method PartiallyDownloadedBlock::FillBlock_
 +}
 ```
 
-## Also update setup of the PopData fields during the net processing.
+### Also update setup of the PopData fields during the net processing.
 [<font style="color: red"> src/net_processing.cpp </font>]  
 _method SendBlockTransactions_
 ```diff
@@ -313,8 +313,8 @@ for (unsigned int n = 0; n < nCount; n++) {
 
 The last step is to update validation rules, add check that if block contains VeriBlock PopData, then block.nVersion must contain POP_BLOCK_VERSION_BIT. Otherwise block.nVersion should not contain POP_BLOCK_VERSION_BIT. 
 
-## Update CheckBlock function in the validation.cpp for this check.
-[<font style="color: red"> validation.cpp </font>]  
+### Update CheckBlock function in the validation.cpp for this check.
+[<font style="color: red"> src/validation.cpp </font>]  
 _method UpdateTip_
 ```diff
          for (int i = 0; i < 100 && pindex != nullptr; i++)
@@ -343,4 +343,143 @@ _method CheckBlock_
      // Check the merkle root.
      if (fCheckMerkleRoot) {
          bool mutated;
+```
+
+### Also should update the mining function to setup POP_BLOCK_VERSION_BIT if VeriBlock PopData is contained in the block.
+[<font style="color: red"> src/miner.cpp </font>]  
+_method BlockAssembler::CreateNewBlockWithScriptPubKey_
+```diff
+     int nDescendantsUpdated = 0;
+     addPackageTxs(nPackagesSelected, nDescendantsUpdated);
+
++    // VeriBlock: add PopData into the block
++    if (!pblock->popData.atvs.empty() || !pblock->popData.context.empty() || !pblock->popData.vtbs.empty()) {+        pblock->nVersion |= VeriBlock::POP_BLOCK_VERSION_BIT;
++    }
++
+     nLastBlockTx = nBlockTx;
+     nLastBlockWeight = nBlockWeight;
+```
+_method BlockAssembler::CreateNewBlock_
+```diff
+     int nDescendantsUpdated = 0;
+     addPackageTxs(nPackagesSelected, nDescendantsUpdated);
+
++    // VeriBlock: add PopData into the block
++    if (!pblock->popData.atvs.empty() || !pblock->popData.context.empty() || !pblock->popData.vtbs.empty()) {+        pblock->nVersion |= VeriBlock::POP_BLOCK_VERSION_BIT;
++    }
++
+     nLastBlockTx = nBlockTx;
+     nLastBlockWeight = nBlockWeight;
+```
+
+### Overload serialization operations for the VeriBlock PopData and other VeriBlock entities.
+[<font style="color: red"> src/serialize.h </font>]  
+```diff
+ #include <prevector.h>
+ #include <span.h>
+
++#include "veriblock/serde.hpp"
++#include "veriblock/entities/popdata.hpp"
++#include "veriblock/entities/btcblock.hpp"
++#include "veriblock/entities/altblock.hpp"
++#include "veriblock/blockchain/block_index.hpp"
++
+ static const unsigned int MAX_SIZE = 0x02000000;
+```
+```diff
++// VeriBlock: Serialize a PopData object
++template<typename Stream> inline void Serialize(Stream& s, const altintegration::PopData& pop_data) {
++    std::vector<uint8_t> bytes_data = pop_data.toVbkEncoding();
++    Serialize(s, bytes_data);
++}
++
++template<typename Stream> inline void Unserialize(Stream& s, altintegration::PopData& pop_data) {
++    std::vector<uint8_t> bytes_data;
++    Unserialize(s, bytes_data);
++    pop_data = altintegration::PopData::fromVbkEncoding(bytes_data);
++}
++
++template<typename Stream> inline void Serialize(Stream& s, const altintegration::ATV& atv) {
++    std::vector<uint8_t> bytes_data = atv.toVbkEncoding();
++    Serialize(s, bytes_data);
++
++}
++
++template<typename Stream> inline void Unserialize(Stream& s, altintegration::ATV& atv) {
++    std::vector<uint8_t> bytes_data;
++    Unserialize(s, bytes_data);
++    atv = altintegration::ATV::fromVbkEncoding(bytes_data);
++}
++template<typename Stream> inline void Serialize(Stream& s, const altintegration::VTB& vtb) {
++    std::vector<uint8_t> bytes_data = vtb.toVbkEncoding();
++    Serialize(s, bytes_data);
++}
++template<typename Stream> inline void Unserialize(Stream& s, altintegration::VTB& vtb) {
++    std::vector<uint8_t> bytes_data;
++    Unserialize(s, bytes_data);
++    vtb = altintegration::VTB::fromVbkEncoding(bytes_data);
++}
++
++template<typename Stream> inline void Serialize(Stream& s, const altintegration::BlockIndex<altintegration::BtcBlock>& b) {
++    std::vector<uint8_t> bytes_data = b.toRaw();
++    Serialize(s, bytes_data);
++}
++template<typename Stream> inline void Unserialize(Stream& s, altintegration::BlockIndex<altintegration::BtcBlock>& b) {
++    std::vector<uint8_t> bytes_data;
++    Unserialize(s, bytes_data);
++    b = altintegration::BlockIndex<altintegration::BtcBlock>::fromRaw(bytes_data);
++}
++template<typename Stream> inline void Serialize(Stream& s, const altintegration::BlockIndex<altintegration::VbkBlock>& b) {
++    std::vector<uint8_t> bytes_data = b.toRaw();
++    Serialize(s, bytes_data);
++}
++template<typename Stream> inline void Unserialize(Stream& s, altintegration::BlockIndex<altintegration::VbkBlock>& b) {
++    std::vector<uint8_t> bytes_data;
++    Unserialize(s, bytes_data);
++    b = altintegration::BlockIndex<altintegration::VbkBlock>::fromRaw(bytes_data);
++}
++template<typename Stream> inline void Serialize(Stream& s, const altintegration::BlockIndex<altintegration::AltBlock>& b) {
++    std::vector<uint8_t> bytes_data = b.toRaw();
++    Serialize(s, bytes_data);
++}
++template<typename Stream> inline void Unserialize(Stream& s, altintegration::BlockIndex<altintegration::AltBlock>& b) {
++    std::vector<uint8_t> bytes_data;
++    Unserialize(s, bytes_data);
++    b = altintegration::BlockIndex<altintegration::AltBlock>::fromRaw(bytes_data);
++}
++template<typename Stream, size_t N> inline void Serialize(Stream& s, const altintegration::Blob<N>& b) {
++    Serialize(s, b.asVector());
++}
++template<typename Stream, size_t N> inline void Unserialize(Stream& s, altintegration::Blob<N>& b) {
++    std::vector<uint8_t> bytes;
++    Unserialize(s, bytes);
++    b = altintegration::Blob<N>(bytes);
++}
+
++template<typename Stream> inline void Serialize(Stream& s, const altintegration::VbkBlock& block) {
++    altintegration::WriteStream stream;
++    block.toVbkEncoding(stream);
++    Serialize(s, stream.data());
++}
++template<typename Stream> inline void Unserialize(Stream& s, altintegration::VbkBlock& block) {
++    std::vector<uint8_t> bytes_data;
++    Unserialize(s, bytes_data);
++    altintegration::ReadStream stream(bytes_data);
++    block = altintegration::VbkBlock::fromVbkEncoding(stream);
++}
+```
+
+## Add PopSecurity fork point parameter.
+
+For the already running blockchains, the only way to enable VeriBlock security is to made a fork.For this purpose we will provide a height of the fork point. Add into the Consensus::Params a block height from which PopSecurity is enabled.
+
+[<font style="color: red"> src/consensus/params.h </font>]  
+_struct Params_
+```diff
+     uint64_t X25XTIME;
+     uint64_t DEACTIVATEDOLLAR;
+     uint64_t DEACTIVATEPRICESERVERS;
++    // VeriBlock
++    uint64_t VeriBlockPopSecurityHeight;
+ };
 ```
