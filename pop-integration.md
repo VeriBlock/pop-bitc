@@ -353,7 +353,8 @@ _method BlockAssembler::CreateNewBlockWithScriptPubKey_
      addPackageTxs(nPackagesSelected, nDescendantsUpdated);
 
 +    // VeriBlock: add PopData into the block
-+    if (!pblock->popData.atvs.empty() || !pblock->popData.context.empty() || !pblock->popData.vtbs.empty()) {+        pblock->nVersion |= VeriBlock::POP_BLOCK_VERSION_BIT;
++    if (!pblock->popData.atvs.empty() || !pblock->popData.context.empty() || !pblock->popData.vtbs.empty()) {
++        pblock->nVersion |= VeriBlock::POP_BLOCK_VERSION_BIT;
 +    }
 +
      nLastBlockTx = nBlockTx;
@@ -365,7 +366,8 @@ _method BlockAssembler::CreateNewBlock_
      addPackageTxs(nPackagesSelected, nDescendantsUpdated);
 
 +    // VeriBlock: add PopData into the block
-+    if (!pblock->popData.atvs.empty() || !pblock->popData.context.empty() || !pblock->popData.vtbs.empty()) {+        pblock->nVersion |= VeriBlock::POP_BLOCK_VERSION_BIT;
++    if (!pblock->popData.atvs.empty() || !pblock->popData.context.empty() || !pblock->popData.vtbs.empty()) {
++        pblock->nVersion |= VeriBlock::POP_BLOCK_VERSION_BIT;
 +    }
 +
      nLastBlockTx = nBlockTx;
@@ -483,3 +485,55 @@ _struct Params_
 +    uint64_t VeriBlockPopSecurityHeight;
  };
 ```
+
+### Define VeriBlockPopSecurityHeight variable.
+[<font style="color: red"> src/chainparams.cpp </font>]  
+_class CMainParams_
+```diff
++
++        // VeriBlock
++        // TODO: should determine the correct height
++        //consensus.VeriBlockPopSecurityHeight = -1;
++
++        // The best chain should have at least this much work.
+         consensus.nMinimumChainWork = uint256S("0x00");
+```
+_class CTestNetParams_
+```diff
++
++        // VeriBlock
++        // TODO: should determine the correct height
++        // consensus.VeriBlockPopSecurityHeight = -1;
+
+         // The best chain should have at least this much work.
+         consensus.nMinimumChainWork = uint256S("0x00");
+```
+_class CRegTestParams_
+```diff
++
++        // VeriBlock
++        // TODO: should determine the correct height
++        // consensus.VeriBlockPopSecurityHeight = -1;
+
+         // The best chain should have at least this much work.
+         consensus.nMinimumChainWork = uint256S("0x00");
+```
+
+### Update validation for the block, if PoPSecurity is disabled, so POP_BLOCK_VERSION_BIT should not be set.
+[<font style="color: red"> src/validation.cpp </font>]  
+_method ContextualCheckBlockHeader_
+```diff
++    // VeriBlock validation
++    if((block.nVersion & VeriBlock::POP_BLOCK_VERSION_BIT) && consensusParams.VeriBlockPopSecurityHeight > nHeight)
++    {
++        return state.Invalid(false, REJECT_OBSOLETE, strprintf("bad-pop-version(0x%08x)", block.nVersion),
++         strprintf("block contains PopData before PopSecurity has been enabled"));
++    }
++
+     return true;
+```
+
+## Add VeriBlock config.
+
+Before adding using and defining some objects from the VeriBlock library, we should define some VeriBlock specific parameters for library. For that we have to add new Config class which inherits from the altintegration::AltChainParams.
+But first we will add functions that will wrap the interaction with the library. For that create two new source files pop_common.hpp, pop_common.cpp.
