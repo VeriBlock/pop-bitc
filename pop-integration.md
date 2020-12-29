@@ -537,3 +537,69 @@ _method ContextualCheckBlockHeader_
 
 Before adding using and defining some objects from the VeriBlock library, we should define some VeriBlock specific parameters for library. For that we have to add new Config class which inherits from the altintegration::AltChainParams.
 But first we will add functions that will wrap the interaction with the library. For that create two new source files pop_common.hpp, pop_common.cpp.
+
+[<font style="color: red"> src/vbk/pop_common.hpp </font>]  
+```diff
++// Copyright (c) 2019-2020 Xenios SEZC
++// https://www.veriblock.org
++// Distributed under the MIT software license, see the accompanying
++// file COPYING or http://www.opensource.org/licenses/mit-license.php.
++
++#ifndef BITCASH_SRC_VBK_POP_COMMON_HPP
++#define BITCASH_SRC_VBK_POP_COMMON_HPP
++
++#include <veriblock/pop_context.hpp>
++
++namespace VeriBlock {
++
++altintegration::PopContext& GetPop();
++
++void SetPopConfig(const altintegration::Config& config);
++
++void SetPop(std::shared_ptr<altintegration::PayloadsProvider>& db);
++
++std::string toPrettyString(const altintegration::PopContext& pop);
++
++} // namespace VeriBlock
++
++#endif // BITCASH_SRC_VBK_POP_COMMON_HPP
+```
+
+[<font style="color: red"> src/vbk/pop_common.cpp </font>]  
+```diff
++// Copyright (c) 2019-2020 Xenios SEZC
++// https://www.veriblock.org
++// Distributed under the MIT software license, see the accompanying
++// file COPYING or http://www.opensource.org/licenses/mit-license.php.
++
++#include <vbk/pop_common.hpp>
++
++namespace VeriBlock {
++
++static std::shared_ptr<altintegration::PopContext> app = nullptr;
++static std::shared_ptr<altintegration::Config> config = nullptr;
++
++altintegration::PopContext& GetPop()
++{
++    assert(app && "Altintegration is not initialized. Invoke SetPop.");
++    return *app;
++}
++
++void SetPopConfig(const altintegration::Config& newConfig)
++{
++    config = std::make_shared<altintegration::Config>(newConfig);
++}
++
++void SetPop(std::shared_ptr<altintegration::PayloadsProvider>& db)
++{
++    assert(config && "Config is not initialized. Invoke SetPopConfig");
++    app = altintegration::PopContext::create(config, db);
++}
++
++std::string toPrettyString(const altintegration::PopContext& pop)
++{
++    return pop.altTree->toPrettyString();
++}
++
++} // namespace VeriBlock
+```
