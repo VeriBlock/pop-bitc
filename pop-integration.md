@@ -169,7 +169,9 @@ public:
      std::vector<CTransactionRef> vtx;
 +    // VeriBlock  data network and disk
 +    altintegration::PopData popData;
- 
+```
+_class CBlock_
+```diff
      // memory only
      mutable bool fChecked;
      inline void SerializationOp(Stream& s, Operation ser_action) {
@@ -178,6 +180,16 @@ public:
 +        if (this->nVersion & VeriBlock::POP_BLOCK_VERSION_BIT) {
 +            READWRITE(popData);
 +        }
+     }
+
+     void SetNull()
+     {
+         CBlockHeader::SetNull();
+         vtx.clear();
++        popData.context.clear();
++        popData.vtbs.clear();
++        popData.atvs.clear();
+         fChecked = false;
      }
 ```
 
@@ -224,7 +236,6 @@ public:
 ```
 _class PartiallyDownloadedBlock_
 ```diff
-CTxMemPool* pool;
  public:
      CBlockHeader header;
 +    // VeriBlock data
@@ -241,7 +252,15 @@ CTxMemPool* pool;
 ```
 
 ### Update PartiallyDownloadedBlock object initializing - fill PopData field.
-[<font style="color: red"> src/blockencodings.cpp </font>]  
+[<font style="color: red"> src/blockencodings.cpp </font>]
+_method CBlockHeaderAndShortTxIDs::CBlockHeaderAndShortTxIDs_
+```diff
+         const CTransaction& tx = *block.vtx[i];
+         shorttxids[i - 1] = GetShortID(fUseWTXID ? tx.GetWitnessHash() : tx.GetHash());
+     }
++    // VeriBlock
++    this->popData = block.popData;
+```  
 _method PartiallyDownloadedBlock::InitData_
 ```diff
 -    LogPrint(BCLog::CMPCTBLOCK, "Initialized PartiallyDownloadedBlock for block %s using a cmpctblock of size %lu\n", cmpctblock.header.GetHash().ToString(), GetSerializeSize(cmpctblock, SER_NETWORK, PROTOCOL_VERSION));
@@ -263,6 +282,13 @@ _method PartiallyDownloadedBlock::FillBlock_
 +
      CValidationState state;
 ```
+_method PartiallyDownloadedBlock::FillBlock_
+```diff
+-    LogPrint(BCLog::CMPCTBLOCK, "Successfully reconstructed block %s with %lu txn prefilled, %lu txn from mempool (incl at least %lu from extra pool) and %lu txn requested\n", hash.ToString(), prefilled_count, mempool_count, extra_count, vtx_missing.size());
++    LogPrint(BCLog::CMPCTBLOCK, "Successfully reconstructed block %s with %lu txn prefilled, %lu txn from mempool (incl at least %lu from extra pool) and %lu txn requested, and %d VBK %d VTB %d ATV\n", hash.ToString(), prefilled_count, mempool_count, extra_count, vtx_missing.size(), this->popData.context.size(), this->popData.vtbs.size(), this->popData.atvs.size());
+     if (vtx_missing.size() < 5) {
+         for (const auto& tx : vtx_missing) {
+```
 ```diff
 +
 +ReadStatus PartiallyDownloadedBlock::FillBlock(CBlock& block, const std::vector<CTransactionRef>& vtx_missing, const altintegration::PopData& popData) {
@@ -276,20 +302,22 @@ _method PartiallyDownloadedBlock::FillBlock_
 [<font style="color: red"> src/net_processing.cpp </font>]  
 _method SendBlockTransactions_
 ```diff
-}
-         resp.txn[i] = block.vtx[req.indexes[i]];
-     }
-+
+     int nSendFlags = State(pfrom->GetId())->fWantsCmpctWitness ? 0 : SERIALIZE_TRANSACTION_NO_WITNESS;
 +    // VeriBlock: add popData
 +    resp.popData = block.popData;
-+
-     LOCK(cs_main);
-     const CNetMsgMaker msgMaker(pfrom->GetSendVersion());
-     int nSendFlags = State(pfrom->GetId())->fWantsCmpctWitness ? 0 : SERIALIZE_TRANSACTION_NO_WITNESS;
+     connman->PushMessage(pfrom, msgMaker.Make(nSendFlags, NetMsgType::BLOCKTXN, resp));
 ```
 _method ProcessMessage_
 ```diff
- status = tempBlock.FillBlock(*pblock, dummy);
+                     BlockTransactions txn;
+                     txn.blockhash = cmpctblock.header.GetHash();
++                    txn.popData = cmpctblock.popData;
+                     blockTxnMsg << txn;
+                     fProcessBLOCKTXN = true;
+```
+_method ProcessMessage_
+```diff
+                 status = tempBlock.FillBlock(*pblock, dummy);
                  if (status == READ_STATUS_OK) {
                      fBlockReconstructed = true;
 +                    // VeriBlock: check for empty popData
@@ -301,7 +329,14 @@ _method ProcessMessage_
 ```
 _method ProcessMessage_
 ```diff
-for (unsigned int n = 0; n < nCount; n++) {
+             PartiallyDownloadedBlock& partialBlock = *it->second.second->partialBlock;
+-            ReadStatus status = partialBlock.FillBlock(*pblock, resp.txn);
++            ReadStatus status = partialBlock.FillBlock(*pblock, resp.txn, resp.popData);
+             if (status == READ_STATUS_INVALID) {
+                 MarkBlockAsReceived(resp.blockhash); // Reset in-flight state in case of whitelist
+```
+_method ProcessMessage_
+```diff
              vRecv >> headers[n];
              ReadCompactSize(vRecv); // ignore tx count; assume it is 0.
 +            if (headers[n].nVersion & VeriBlock::POP_BLOCK_VERSION_BIT) {
@@ -311,7 +346,7 @@ for (unsigned int n = 0; n < nCount; n++) {
          }
 ```
 
-The last step is to update validation rules, add check that if block contains VeriBlock PopData, then block.nVersion must contain POP_BLOCK_VERSION_BIT. Otherwise block.nVersion should not contain POP_BLOCK_VERSION_BIT. 
+Next step is to update validation rules, add check that if block contains VeriBlock PopData, then block.nVersion must contain POP_BLOCK_VERSION_BIT. Otherwise block.nVersion should not contain POP_BLOCK_VERSION_BIT. 
 
 ### Update CheckBlock function in the validation.cpp for this check.
 [<font style="color: red"> src/validation.cpp </font>]  
@@ -353,7 +388,7 @@ _method BlockAssembler::CreateNewBlockWithScriptPubKey_
      addPackageTxs(nPackagesSelected, nDescendantsUpdated);
 
 +    // VeriBlock: add PopData into the block
-+    if (!pblock->popData.atvs.empty() || !pblock->popData.context.empty() || !pblock->popData.vtbs.empty()) {
++    if(!pblock->popData.empty()) {
 +        pblock->nVersion |= VeriBlock::POP_BLOCK_VERSION_BIT;
 +    }
 +
@@ -366,7 +401,7 @@ _method BlockAssembler::CreateNewBlock_
      addPackageTxs(nPackagesSelected, nDescendantsUpdated);
 
 +    // VeriBlock: add PopData into the block
-+    if (!pblock->popData.atvs.empty() || !pblock->popData.context.empty() || !pblock->popData.vtbs.empty()) {
++    if(!pblock->popData.empty()) {
 +        pblock->nVersion |= VeriBlock::POP_BLOCK_VERSION_BIT;
 +    }
 +
@@ -389,28 +424,48 @@ _method BlockAssembler::CreateNewBlock_
  static const unsigned int MAX_SIZE = 0x02000000;
 ```
 ```diff
+     a.Unserialize(is);
+ }
+
 +// VeriBlock: Serialize a PopData object
 +template<typename Stream> inline void Serialize(Stream& s, const altintegration::PopData& pop_data) {
 +    std::vector<uint8_t> bytes_data = pop_data.toVbkEncoding();
 +    Serialize(s, bytes_data);
 +}
 +
++template <typename T>
++void UnserializeOrThrow(const std::vector<uint8_t>& in, T& out) {
++    altintegration::ValidationState state;
++    altintegration::ReadStream stream(in);
++    if(!altintegration::DeserializeFromVbkEncoding(stream, out, state)) {
++        throw std::invalid_argument(state.toString());
++    }
++}
++
++template <typename T>
++void UnserializeOrThrow(const std::vector<uint8_t>& in, T& out, typename T::hash_t precalculatedHash) {
++    altintegration::ValidationState state;
++    altintegration::ReadStream stream(in);
++    if(!altintegration::DeserializeFromVbkEncoding(stream, out, state, precalculatedHash)) {
++        throw std::invalid_argument(state.toString());
++    }
++}
++
 +template<typename Stream> inline void Unserialize(Stream& s, altintegration::PopData& pop_data) {
 +    std::vector<uint8_t> bytes_data;
 +    Unserialize(s, bytes_data);
-+    pop_data = altintegration::PopData::fromVbkEncoding(bytes_data);
++    UnserializeOrThrow(bytes_data, pop_data);
 +}
-+
+
 +template<typename Stream> inline void Serialize(Stream& s, const altintegration::ATV& atv) {
 +    std::vector<uint8_t> bytes_data = atv.toVbkEncoding();
 +    Serialize(s, bytes_data);
-+
 +}
-+
+
 +template<typename Stream> inline void Unserialize(Stream& s, altintegration::ATV& atv) {
 +    std::vector<uint8_t> bytes_data;
 +    Unserialize(s, bytes_data);
-+    atv = altintegration::ATV::fromVbkEncoding(bytes_data);
++    UnserializeOrThrow(bytes_data, atv);
 +}
 +template<typename Stream> inline void Serialize(Stream& s, const altintegration::VTB& vtb) {
 +    std::vector<uint8_t> bytes_data = vtb.toVbkEncoding();
@@ -419,35 +474,35 @@ _method BlockAssembler::CreateNewBlock_
 +template<typename Stream> inline void Unserialize(Stream& s, altintegration::VTB& vtb) {
 +    std::vector<uint8_t> bytes_data;
 +    Unserialize(s, bytes_data);
-+    vtb = altintegration::VTB::fromVbkEncoding(bytes_data);
++    UnserializeOrThrow(bytes_data, vtb);
 +}
-+
+
 +template<typename Stream> inline void Serialize(Stream& s, const altintegration::BlockIndex<altintegration::BtcBlock>& b) {
-+    std::vector<uint8_t> bytes_data = b.toRaw();
++    std::vector<uint8_t> bytes_data = b.toVbkEncoding();
 +    Serialize(s, bytes_data);
 +}
 +template<typename Stream> inline void Unserialize(Stream& s, altintegration::BlockIndex<altintegration::BtcBlock>& b) {
 +    std::vector<uint8_t> bytes_data;
 +    Unserialize(s, bytes_data);
-+    b = altintegration::BlockIndex<altintegration::BtcBlock>::fromRaw(bytes_data);
++    UnserializeOrThrow(bytes_data, b);
 +}
 +template<typename Stream> inline void Serialize(Stream& s, const altintegration::BlockIndex<altintegration::VbkBlock>& b) {
-+    std::vector<uint8_t> bytes_data = b.toRaw();
++    std::vector<uint8_t> bytes_data = b.toVbkEncoding();
 +    Serialize(s, bytes_data);
 +}
 +template<typename Stream> inline void Unserialize(Stream& s, altintegration::BlockIndex<altintegration::VbkBlock>& b) {
 +    std::vector<uint8_t> bytes_data;
 +    Unserialize(s, bytes_data);
-+    b = altintegration::BlockIndex<altintegration::VbkBlock>::fromRaw(bytes_data);
++    UnserializeOrThrow(bytes_data, b);
 +}
 +template<typename Stream> inline void Serialize(Stream& s, const altintegration::BlockIndex<altintegration::AltBlock>& b) {
-+    std::vector<uint8_t> bytes_data = b.toRaw();
++    std::vector<uint8_t> bytes_data = b.toVbkEncoding();
 +    Serialize(s, bytes_data);
 +}
 +template<typename Stream> inline void Unserialize(Stream& s, altintegration::BlockIndex<altintegration::AltBlock>& b) {
 +    std::vector<uint8_t> bytes_data;
 +    Unserialize(s, bytes_data);
-+    b = altintegration::BlockIndex<altintegration::AltBlock>::fromRaw(bytes_data);
++    UnserializeOrThrow(bytes_data, b);
 +}
 +template<typename Stream, size_t N> inline void Serialize(Stream& s, const altintegration::Blob<N>& b) {
 +    Serialize(s, b.asVector());
@@ -455,9 +510,12 @@ _method BlockAssembler::CreateNewBlock_
 +template<typename Stream, size_t N> inline void Unserialize(Stream& s, altintegration::Blob<N>& b) {
 +    std::vector<uint8_t> bytes;
 +    Unserialize(s, bytes);
-+    b = altintegration::Blob<N>(bytes);
++    if(bytes.size() > N) {
++        throw std::invalid_argument("Blob: bad size. Expected <= " + std::to_string(N) + ", got=" + std::to_string(bytes.size()));
++    }
++    b = bytes;
 +}
-
++
 +template<typename Stream> inline void Serialize(Stream& s, const altintegration::VbkBlock& block) {
 +    altintegration::WriteStream stream;
 +    block.toVbkEncoding(stream);
@@ -466,14 +524,21 @@ _method BlockAssembler::CreateNewBlock_
 +template<typename Stream> inline void Unserialize(Stream& s, altintegration::VbkBlock& block) {
 +    std::vector<uint8_t> bytes_data;
 +    Unserialize(s, bytes_data);
-+    altintegration::ReadStream stream(bytes_data);
-+    block = altintegration::VbkBlock::fromVbkEncoding(stream);
++    UnserializeOrThrow(bytes_data, block);
++}
++
++template <typename Stream>
++inline void UnserializeWithHash(Stream& s, altintegration::BlockIndex<altintegration::VbkBlock>& block, const altintegration::VbkBlock::hash_t& precalculatedHash = altintegration::VbkBlock::hash_t())
++{
++    std::vector<uint8_t> bytes_data;
++    Unserialize(s, bytes_data);
++    UnserializeOrThrow(bytes_data, block, precalculatedHash);
 +}
 ```
 
 ## Add PopSecurity fork point parameter.
 
-For the already running blockchains, the only way to enable VeriBlock security is to made a fork.For this purpose we will provide a height of the fork point. Add into the Consensus::Params a block height from which PopSecurity is enabled.
+For the already running blockchains, the only way to enable VeriBlock security is to made a fork. For this reason we will provide a height of the fork point. Add into the Consensus::Params a block height from which PopSecurity is enabled.
 
 [<font style="color: red"> src/consensus/params.h </font>]  
 _struct Params_
