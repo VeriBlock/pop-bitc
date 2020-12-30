@@ -13,7 +13,8 @@ namespace VeriBlock {
 
 std::vector<uint8_t> AltChainParamsVBitCash::getHash(const std::vector<uint8_t>& bytes) const noexcept
 {
-    return uintToVector(headerFromBytes(bytes).GetHash());
+    uint256 hash = headerFromBytes(bytes).GetHash();
+    return hash.asVector();
 }
 
 static std::vector<std::string> parseBlocks(const std::string& s)

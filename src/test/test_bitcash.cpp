@@ -16,6 +16,7 @@
 #include <rpc/server.h>
 #include <rpc/register.h>
 #include <script/sigcache.h>
+#include <vbk/bootstraps.hpp>
 
 
 void CConnmanTest::AddNode(CNode& node)
@@ -50,6 +51,8 @@ BasicTestingSetup::BasicTestingSetup(const std::string& chainName)
         InitScriptExecutionCache();
         fCheckBlockIndex = true;
         SelectParams(chainName);
+        // VeriBlock
+        VeriBlock::selectPopConfig("regtest", "regtest", true);
         noui_connect();
 }
 

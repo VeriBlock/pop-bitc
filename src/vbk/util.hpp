@@ -3,8 +3,8 @@
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef BITCOIN_SRC_VBK_UTIL_HPP
-#define BITCOIN_SRC_VBK_UTIL_HPP
+#ifndef BITC_SRC_VBK_UTIL_HPP
+#define BITC_SRC_VBK_UTIL_HPP
 
 #include <consensus/consensus.h>
 #include <primitives/block.h>
@@ -117,4 +117,4 @@ inline std::vector<uint8_t> uintToVector(const uint256& from)
 }
 
 } // namespace VeriBlock
-#endif
+#endif //BITC_SRC_VBK_UTIL_HPP

@@ -152,7 +152,7 @@ const static int32_t POP_BLOCK_VERSION_BIT = 0x80000UL;
 
 #endif //BITCOIN_SRC_VBK_VBK_HPP
 ```
-[<font style="color: red">src/primitives/block.h</font>]
+[<font style="color: red"> src/primitives/block.h </font>]
 ```diff
 #include <set>
 +#include <vbk/vbk.hpp>
@@ -667,4 +667,430 @@ But first we will add functions that will wrap the interaction with the library.
 +}
 +
 +} // namespace VeriBlock
+```
+
+## Add the initial configuration of the VeriBlock and Bitcoin blockchains.
+
+### Add bootstraps blocks. Create AltChainParamsBITC class with the VeriBlock configuration of the Bitcash blockchain.
+
+[<font style="color: red"> src/vbk/bootstraps.hpp </font>]
+```diff
+// Copyright (c) 2019-2020 Xenios SEZC
+// https://www.veriblock.org
+// Distributed under the MIT software license, see the accompanying
+// file COPYING or http://www.opensource.org/licenses/mit-license.php.
+
+#ifndef __BOOTSTRAPS_BITC_VBK
+#define __BOOTSTRAPS_BITC_VBK
+
+#include <string>
+#include <vector>
+
+#include <primitives/block.h>
+#include <util.h>
+#include <veriblock/config.hpp>
+
+namespace VeriBlock {
+
+extern const int testnetVBKstartHeight;
+extern const std::vector<std::string> testnetVBKblocks;
+
+extern const int testnetBTCstartHeight;
+extern const std::vector<std::string> testnetBTCblocks;
+
+struct AltChainParamsVBitCash : public altintegration::AltChainParams {
+    ~AltChainParamsVBitCash() override = default;
+
+    AltChainParamsVBitCash(const CBlock& genesis)
+    {
+        auto hash = genesis.GetHash();
+        bootstrap.hash = std::vector<uint8_t>{hash.begin(), hash.end()};
+        bootstrap.previousBlock = genesis.hashPrevBlock.asVector();
+        bootstrap.height = 0; // pop is enabled starting at genesis
+        bootstrap.timestamp = genesis.GetBlockTime();
+    }
+
+    altintegration::AltBlock getBootstrapBlock() const noexcept override
+    {
+        return bootstrap;
+    }
+
+    int64_t getIdentifier() const noexcept override
+    {
+        return 0x3ae6ca;
+    }
+
+    std::vector<uint8_t> getHash(const std::vector<uint8_t>& bytes) const noexcept override;
+
+    altintegration::AltBlock bootstrap;
+};
+
+void printConfig(const altintegration::Config& config);
+void selectPopConfig(const ArgsManager& mgr);
+void selectPopConfig(
+    const std::string& btcnet,
+    const std::string& vbknet,
+    bool popautoconfig = true,
+    int btcstart = 0,
+    const std::string& btcblocks = {},
+    int vbkstart = 0,
+    const std::string& vbkblocks = {});
+
+} // namespace VeriBlock
+
+#endif //__BOOTSTRAPS_BITC_VBK
+```
+
+[<font style="color: red"> src/vbk/bootstraps.cpp </font>]
+```diff
+// Copyright (c) 2019-2020 Xenios SEZC
+// https://www.veriblock.org
+// Distributed under the MIT software license, see the accompanying
+// file COPYING or http://www.opensource.org/licenses/mit-license.php.
+
+#include <boost/algorithm/string.hpp>
+#include <chainparams.h>
+#include <vbk/bootstraps.hpp>
+#include <vbk/util.hpp>
+#include <vbk/pop_common.hpp>
+
+namespace VeriBlock {
+
+std::vector<uint8_t> AltChainParamsVBitCash::getHash(const std::vector<uint8_t>& bytes) const noexcept
+{
+    uint256 hash = headerFromBytes(bytes).GetHash();
+    return hash.asVector();
+}
+
+static std::vector<std::string> parseBlocks(const std::string& s)
+{
+    std::vector<std::string> strs;
+    boost::split(strs, s, boost::is_any_of(","));
+    return strs;
+}
+
+void printConfig(const altintegration::Config& config)
+{
+    std::string btclast = config.btc.blocks.empty() ? "<empty>" : config.btc.blocks.rbegin()->getHash().toHex();
+    std::string btcfirst = config.btc.blocks.empty() ? "<empty>" : config.btc.blocks.begin()->getHash().toHex();
+    std::string vbklast = config.vbk.blocks.empty() ? "<empty>" : config.vbk.blocks.rbegin()->getHash().toHex();
+    std::string vbkfirst = config.vbk.blocks.empty() ? "<empty>" : config.vbk.blocks.begin()->getHash().toHex();
+
+
+    assert(config.alt);
+
+    LogPrintf(R"(Applied POP config:
+ BTC:
+  network     : %s
+  startHeight : %d
+  total blocks: %d
+  first       : %s
+  last        : %s
+
+ VBK:
+  network     : %s
+  startHeight : %d
+  total blocks: %d
+  first       : %s
+  last        : %s
+
+ ALT:
+  network     : %s
+  block height: %d
+  block hash  : %s
+  chain id    : %lld
+)",
+        config.btc.params->networkName(), config.btc.startHeight, config.btc.blocks.size(), btcfirst, btclast,
+
+        config.vbk.params->networkName(), config.vbk.startHeight, config.vbk.blocks.size(), vbkfirst, vbklast,
+
+        Params().NetworkIDString(), config.alt->getBootstrapBlock().height,
+        altintegration::HexStr(config.alt->getBootstrapBlock().hash),
+        config.alt->getIdentifier());
+}
+
+void selectPopConfig(
+    const std::string& btcnet,
+    const std::string& vbknet,
+    bool popautoconfig,
+    int btcstart,
+    const std::string& btcblocks,
+    int vbkstart,
+    const std::string& vbkblocks)
+{
+    altintegration::Config popconfig;
+
+    //! SET BTC
+    if (btcnet == "test") {
+        auto param = std::make_shared<altintegration::BtcChainParamsTest>();
+        if (popautoconfig) {
+            popconfig.setBTC(testnetBTCstartHeight, testnetBTCblocks, param);
+        } else {
+            popconfig.setBTC(btcstart, parseBlocks(btcblocks), param);
+        }
+    } else if (btcnet == "regtest") {
+        auto param = std::make_shared<altintegration::BtcChainParamsRegTest>();
+        if (popautoconfig) {
+            popconfig.setBTC(0, {}, param);
+        } else {
+            popconfig.setBTC(btcstart, parseBlocks(btcblocks), param);
+        }
+    } else {
+        throw std::invalid_argument("btcnet currently only supports test/regtest");
+    }
+
+    //! SET VBK
+    if (vbknet == "test") {
+        auto param = std::make_shared<altintegration::VbkChainParamsTest>();
+        if (popautoconfig) {
+            popconfig.setVBK(testnetVBKstartHeight, testnetVBKblocks, param);
+        } else {
+            popconfig.setVBK(vbkstart, parseBlocks(vbkblocks), param);
+        }
+    } else if (btcnet == "regtest") {
+        auto param = std::make_shared<altintegration::VbkChainParamsRegTest>();
+        if (popautoconfig) {
+            popconfig.setVBK(0, {}, param);
+        } else {
+            popconfig.setVBK(vbkstart, parseBlocks(vbkblocks), param);
+        }
+    } else {
+        throw std::invalid_argument("vbknet currently only supports test/regtest");
+    }
+
+    auto altparams = std::make_shared<AltChainParamsVBitCash>(Params().GenesisBlock());
+    popconfig.alt = altparams;
+    VeriBlock::SetPopConfig(popconfig);
+    printConfig(popconfig);
+}
+
+void selectPopConfig(const ArgsManager& args)
+{
+    std::string btcnet = args.GetArg("-popbtcnetwork", "regtest");
+    std::string vbknet = args.GetArg("-popvbknetwork", "regtest");
+    bool popautoconfig = args.GetBoolArg("-popautoconfig", true);
+    int btcstart = args.GetArg("-popbtcstartheight", 0);
+    std::string btcblocks = args.GetArg("-popbtcblocks", "");
+    int vbkstart = args.GetArg("-popvbkstartheight", 0);
+    std::string vbkblocks = args.GetArg("-popvbkblocks", "");
+
+    selectPopConfig(btcnet, vbknet, popautoconfig, btcstart, btcblocks, vbkstart, vbkblocks);
+}
+
+const int testnetVBKstartHeight=860529;
+const int testnetBTCstartHeight=1832624;
+
+const std::vector<std::string> testnetBTCblocks = {};
+
+const std::vector<std::string> testnetVBKblocks = {};
+
+} // namespace VeriBlock
+```
+
+### Create an util.hpp file with some useful functions for the VeriBlock integration.
+
+[<font style="color: red"> src/vbk/util.hpp </font>]
+```diff
+// Copyright (c) 2019-2020 Xenios SEZC
+// https://www.veriblock.org
+// Distributed under the MIT software license, see the accompanying
+// file COPYING or http://www.opensource.org/licenses/mit-license.php.
+
+#ifndef BITC_SRC_VBK_UTIL_HPP
+#define BITC_SRC_VBK_UTIL_HPP
+
+#include <consensus/consensus.h>
+#include <primitives/block.h>
+#include <primitives/transaction.h>
+#include <streams.h>
+#include <version.h>
+
+#include <veriblock/entities/popdata.hpp>
+
+#include <algorithm>
+#include <amount.h>
+#include <chain.h>
+#include <functional>
+
+namespace VeriBlock {
+
+/**
+ * Create new Container with elements filtered elements of original container. All elements for which pred returns false will be removed.
+ * @tparam Container any container, such as std::vector
+ * @param v instance of container to be filtered
+ * @param pred predicate. Returns true for elements that need to stay in container.
+ */
+template <typename Container>
+Container filter_if(const Container& inp, std::function<bool(const typename Container::value_type&)> pred)
+{
+    Container v = inp;
+    v.erase(std::remove_if(
+                v.begin(), v.end(), [&](const typename Container::value_type& t) {
+                    return !pred(t);
+                }),
+        v.end());
+    return v;
+}
+
+inline CBlockHeader headerFromBytes(const std::vector<uint8_t>& v)
+{
+    CDataStream stream(v, SER_NETWORK, PROTOCOL_VERSION);
+    CBlockHeader header;
+    stream >> header;
+    return header;
+}
+
+inline altintegration::AltBlock blockToAltBlock(int nHeight, const CBlockHeader& block)
+{
+    altintegration::AltBlock alt;
+    alt.height = nHeight;
+    alt.timestamp = block.nTime;
+    alt.previousBlock = std::vector<uint8_t>(block.hashPrevBlock.begin(), block.hashPrevBlock.end());
+    auto hash = block.GetHash();
+    alt.hash = std::vector<uint8_t>(hash.begin(), hash.end());
+    return alt;
+}
+
+inline altintegration::AltBlock blockToAltBlock(const CBlockIndex& index)
+{
+    return blockToAltBlock(index.nHeight, index.GetBlockHeader());
+}
+
+template <typename T>
+bool FindPayloadInBlock(const CBlock& block, const typename T::id_t& id, T& out)
+{
+    (void)block;
+    (void)id;
+    (void)out;
+    static_assert(sizeof(T) == 0, "Undefined type in FindPayloadInBlock");
+    return false;
+}
+
+template <>
+inline bool FindPayloadInBlock(const CBlock& block, const altintegration::VbkBlock::id_t& id, altintegration::VbkBlock& out)
+{
+    for (auto& blk : block.popData.context) {
+        if (blk.getShortHash() == id) {
+            out = blk;
+            return true;
+        }
+    }
+
+    return false;
+}
+
+template <>
+inline bool FindPayloadInBlock(const CBlock& block, const altintegration::VTB::id_t& id, altintegration::VTB& out)
+{
+    for (auto& vtb : block.popData.vtbs) {
+        if (vtb.getId() == id) {
+            out = vtb;
+            return true;
+        }
+    }
+
+    return false;
+}
+
+template <>
+inline bool FindPayloadInBlock(const CBlock& block, const altintegration::ATV::id_t& id, altintegration::ATV& out)
+{
+    for (auto& atv : block.popData.atvs) {
+        if (atv.getId() == id) {
+            out = atv;
+            return true;
+        }
+    }
+    return false;
+}
+
+inline std::vector<uint8_t> uintToVector(const uint256& from)
+{
+    return std::vector<uint8_t>{from.begin(), from.end()};
+}
+
+} // namespace VeriBlock
+#endif //BITC_SRC_VBK_UTIL_HPP
+```
+
+## Now update the initializatio of the bitcashd, bitcash-wallet, etc to setup VeriBlock config.
+
+[<font style="color: red"> src/bitcashd.cpp </font>]
+```diff
+ #include <utilstrencodings.h>
+ #include <walletinitinterface.h>
++#include <vbk/bootstraps.hpp>
+
+ #include <boost/thread.hpp>
+```
+_method AppInit_
+```diff
+         try {
+             SelectParams(gArgs.GetChainName());
++            // VeriBlock
++            VeriBlock::selectPopConfig(gArgs);
+         } catch (const std::exception& e) {
+```
+
+[<font style="color: red"> src/bitcash-tx.cpp </font>]
+```diff
+ #include <utilmoneystr.h>
+ #include <utilstrencodings.h>
++#include <vbk/bootstraps.hpp>
+
+ #include <memory>
+```
+_method AppInitRawTx_
+```diff
+     try {
+         SelectParams(gArgs.GetChainName());
++        // VeriBlock
++        VeriBlock::selectPopConfig(gArgs);
+     } catch (const std::exception& e) {
+```
+
+[<font style="color: red"> src/interfaces/node.cpp </font>]
+```diff
+     bool softSetBoolArg(const std::string& arg, bool value) override { return gArgs.SoftSetBoolArg(arg, value); }
+-    void selectParams(const std::string& network) override { SelectParams(network); }
++    void selectParams(const std::string& network) override
++    {
++        SelectParams(network);
++        VeriBlock::selectPopConfig(gArgs);
++    }
+
+[<font style="color: red"> src/test/test_bitcash.cpp </font>]
+```diff
+ #include <rpc/register.h>
+ #include <script/sigcache.h>
++#include <vbk/bootstraps.hpp>
+```
+_method AddNode_
+```diff
+         fCheckBlockIndex = true;
+         SelectParams(chainName);
++        // VeriBlock
++        VeriBlock::selectPopConfig("regtest", "regtest", true);
+         noui_connect();
+```
+_method CreateAndProcessBlock_
+```diff
+     const CChainParams& chainparams = Params();
+-    std::unique_ptr<CBlockTemplate> pblocktemplate = BlockAssembler(chainparams).CreateNewBlock(scriptPubKey);
++    std::unique_ptr<CBlockTemplate> pblocktemplate = BlockAssembler(chainparams).CreateNewBlockWithScriptPubKey(scriptPubKey, false);
+     CBlock& block = pblocktemplate->block;
+```
+
+### The last step is to update makefiles. Add our new source files.
+
+[<font style="color: red"> src/Makefile.am </font>]
+```diff
+ libbitcash_common_a_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
+ libbitcash_common_a_SOURCES = \
++  vbk/pop_common.hpp \
++  vbk/pop_common.cpp \
++  vbk/bootstraps.cpp \
+   base58.cpp \
+   bech32.cpp \
+   chainparams.cpp \
 ```
