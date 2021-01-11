@@ -15,7 +15,7 @@ sudo apt-get install build-essential libtool autotools-dev automake pkg-config l
 sudo apt-get install libboost-system-dev libboost-filesystem-dev libboost-chrono-dev libboost-program-options-dev libboost-test-dev libboost-thread-dev
 ```
 ```sh
-sudo apt-get install libdb-dev libcurl4-openssl-dev
+sudo apt-get install libdb-dev libdb++-dev libcurl4-openssl-dev
 ```
 ```sh
 sudo apt-get install libminiupnpc-dev
@@ -129,16 +129,31 @@ test_test_bitcash_fuzzy_LDADD = \
 +test_test_bitcash_fuzzy_LDADD += $(BOOST_LIBS) $(CRYPTO_LIBS) $(VERIBLOCK_POP_CPP_LIBS)
 ```
 
-## Add PopData in the Block
+## Add PopData to the Block class
 We should add new PopData entity into the CBlock class in the block.h file and provide new nVersion flag. It is needed for storing VeriBlock specific information such as ATVs, VTBs, VBKs.
 First we will add new POP_BLOCK_VERSION_BIT flag, that will help to distinguish original blocks that don't have any VeriBlock specific data, and blocks that contain such data.
-Next, update serialization of the block, that will serialize/deserialize PopData if POP_BLOCK_VERSION_BIT is set. Finally extend serialization/deserialization for the PopData, so we can use the bitcoin native serialization/deserialization.
+Next, update serialization of the block, that will serialize/deserialize PopData if POP_BLOCK_VERSION_BIT is set. Finally extend serialization/deserialization for the PopData, so we can use the Bitcoin native serialization/deserialization.
+
+### Helper for the block hash serialization
+[<font style="color: red"> src/uint256.hpp </font>]
+
+_class base_blob_
+```diff
+     {
+         s.read((char*)data, sizeof(data));
+     }
++
++    std::vector<uint8_t> asVector() const {
++        return std::vector<uint8_t>{begin(), end()};
++    }
+ };
+```
 
 ### Define POP_BLOCK_VERSION_BIT flag.
 [<font style="color: red"> src/vbk/vbk.hpp </font>]
 ```diff
-#ifndef BITCOIN_SRC_VBK_VBK_HPP
-#define BITCOIN_SRC_VBK_VBK_HPP
+#ifndef BITCASH_SRC_VBK_VBK_HPP
+#define BITCASH_SRC_VBK_VBK_HPP
 
 #include <uint256.h>
 
@@ -150,7 +165,7 @@ const static int32_t POP_BLOCK_VERSION_BIT = 0x80000UL;
 
 }  // namespace VeriBlock
 
-#endif //BITCOIN_SRC_VBK_VBK_HPP
+#endif //BITCASH_SRC_VBK_VBK_HPP
 ```
 [<font style="color: red"> src/primitives/block.h </font>]
 ```diff
@@ -170,7 +185,6 @@ public:
 +    // VeriBlock  data network and disk
 +    altintegration::PopData popData;
 ```
-_class CBlock_
 ```diff
      // memory only
      mutable bool fChecked;
@@ -196,7 +210,8 @@ _class CBlock_
 We should also update p2p networking objects such as CBlockHeaderAndShortTxIDs, BlockTransaction, PartiallyDownloadedBlock with the VeriBlock PopData for the correct broadcasting of the VeriBlock data to the network.
 
 ### Add new PopData filed into the BlockTransaction, CBlockHeaderAndShortTxIDs, PartiallyDownloadedBlock and update their serialization/deserialization.
-[<font style="color: red"> src/blockencodings.h </font>]  
+[<font style="color: red"> src/blockencodings.h </font>]
+
 _class BlockTransactions_
 ```diff
 // A BlockTransactions message
@@ -253,6 +268,7 @@ _class PartiallyDownloadedBlock_
 
 ### Update PartiallyDownloadedBlock object initializing - fill PopData field.
 [<font style="color: red"> src/blockencodings.cpp </font>]
+
 _method CBlockHeaderAndShortTxIDs::CBlockHeaderAndShortTxIDs_
 ```diff
          const CTransaction& tx = *block.vtx[i];
@@ -282,7 +298,6 @@ _method PartiallyDownloadedBlock::FillBlock_
 +
      CValidationState state;
 ```
-_method PartiallyDownloadedBlock::FillBlock_
 ```diff
 -    LogPrint(BCLog::CMPCTBLOCK, "Successfully reconstructed block %s with %lu txn prefilled, %lu txn from mempool (incl at least %lu from extra pool) and %lu txn requested\n", hash.ToString(), prefilled_count, mempool_count, extra_count, vtx_missing.size());
 +    LogPrint(BCLog::CMPCTBLOCK, "Successfully reconstructed block %s with %lu txn prefilled, %lu txn from mempool (incl at least %lu from extra pool) and %lu txn requested, and %d VBK %d VTB %d ATV\n", hash.ToString(), prefilled_count, mempool_count, extra_count, vtx_missing.size(), this->popData.context.size(), this->popData.vtbs.size(), this->popData.atvs.size());
@@ -299,7 +314,8 @@ _method PartiallyDownloadedBlock::FillBlock_
 ```
 
 ### Also update setup of the PopData fields during the net processing.
-[<font style="color: red"> src/net_processing.cpp </font>]  
+[<font style="color: red"> src/net_processing.cpp </font>]
+
 _method SendBlockTransactions_
 ```diff
      int nSendFlags = State(pfrom->GetId())->fWantsCmpctWitness ? 0 : SERIALIZE_TRANSACTION_NO_WITNESS;
@@ -315,7 +331,6 @@ _method ProcessMessage_
                      blockTxnMsg << txn;
                      fProcessBLOCKTXN = true;
 ```
-_method ProcessMessage_
 ```diff
                  status = tempBlock.FillBlock(*pblock, dummy);
                  if (status == READ_STATUS_OK) {
@@ -327,7 +342,6 @@ _method ProcessMessage_
                  }
              }
 ```
-_method ProcessMessage_
 ```diff
              PartiallyDownloadedBlock& partialBlock = *it->second.second->partialBlock;
 -            ReadStatus status = partialBlock.FillBlock(*pblock, resp.txn);
@@ -335,7 +349,6 @@ _method ProcessMessage_
              if (status == READ_STATUS_INVALID) {
                  MarkBlockAsReceived(resp.blockhash); // Reset in-flight state in case of whitelist
 ```
-_method ProcessMessage_
 ```diff
              vRecv >> headers[n];
              ReadCompactSize(vRecv); // ignore tx count; assume it is 0.
@@ -349,7 +362,8 @@ _method ProcessMessage_
 Next step is to update validation rules, add check that if block contains VeriBlock PopData, then block.nVersion must contain POP_BLOCK_VERSION_BIT. Otherwise block.nVersion should not contain POP_BLOCK_VERSION_BIT. 
 
 ### Update CheckBlock function in the validation.cpp for this check.
-[<font style="color: red"> src/validation.cpp </font>]  
+[<font style="color: red"> src/validation.cpp </font>]
+
 _method UpdateTip_
 ```diff
          for (int i = 0; i < 100 && pindex != nullptr; i++)
@@ -381,7 +395,8 @@ _method CheckBlock_
 ```
 
 ### Also should update the mining function to setup POP_BLOCK_VERSION_BIT if VeriBlock PopData is contained in the block.
-[<font style="color: red"> src/miner.cpp </font>]  
+[<font style="color: red"> src/miner.cpp </font>]
+
 _method BlockAssembler::CreateNewBlockWithScriptPubKey_
 ```diff
      int nDescendantsUpdated = 0;
@@ -410,7 +425,7 @@ _method BlockAssembler::CreateNewBlock_
 ```
 
 ### Overload serialization operations for the VeriBlock PopData and other VeriBlock entities.
-[<font style="color: red"> src/serialize.h </font>]  
+[<font style="color: red"> src/serialize.h </font>]
 ```diff
  #include <prevector.h>
  #include <span.h>
@@ -540,7 +555,8 @@ _method BlockAssembler::CreateNewBlock_
 
 For the already running blockchains, the only way to enable VeriBlock security is to made a fork. For this reason we will provide a height of the fork point. Add into the Consensus::Params a block height from which PopSecurity is enabled.
 
-[<font style="color: red"> src/consensus/params.h </font>]  
+[<font style="color: red"> src/consensus/params.h </font>]
+
 _struct Params_
 ```diff
      uint64_t X25XTIME;
@@ -552,7 +568,8 @@ _struct Params_
 ```
 
 ### Define VeriBlockPopSecurityHeight variable.
-[<font style="color: red"> src/chainparams.cpp </font>]  
+[<font style="color: red"> src/chainparams.cpp </font>]
+
 _class CMainParams_
 ```diff
 +
@@ -585,7 +602,8 @@ _class CRegTestParams_
 ```
 
 ### Update validation for the block, if PoPSecurity is disabled, so POP_BLOCK_VERSION_BIT should not be set.
-[<font style="color: red"> src/validation.cpp </font>]  
+[<font style="color: red"> src/validation.cpp </font>]
+
 _method ContextualCheckBlockHeader_
 ```diff
 +    // VeriBlock validation
@@ -600,73 +618,82 @@ _method ContextualCheckBlockHeader_
 
 ## Add VeriBlock config.
 
-Before adding using and defining some objects from the VeriBlock library, we should define some VeriBlock specific parameters for library. For that we have to add new Config class which inherits from the altintegration::AltChainParams.
-But first we will add functions that will wrap the interaction with the library. For that create two new source files pop_common.hpp, pop_common.cpp.
+Before using objects from the VeriBlock library, we should define some VeriBlock specific parameters for the library. We have to add new Config class which inherits from the altintegration::AltChainParams.
+But first we will add functions that wrap interaction with the library. Create two new source files: pop_common.hpp, pop_common.cpp.
 
-[<font style="color: red"> src/vbk/pop_common.hpp </font>]  
+[<font style="color: red"> src/vbk/pop_common.hpp </font>]
 ```diff
-+// Copyright (c) 2019-2020 Xenios SEZC
-+// https://www.veriblock.org
-+// Distributed under the MIT software license, see the accompanying
-+// file COPYING or http://www.opensource.org/licenses/mit-license.php.
-+
-+#ifndef BITCASH_SRC_VBK_POP_COMMON_HPP
-+#define BITCASH_SRC_VBK_POP_COMMON_HPP
-+
-+#include <veriblock/pop_context.hpp>
-+
-+namespace VeriBlock {
-+
-+altintegration::PopContext& GetPop();
-+
-+void SetPopConfig(const altintegration::Config& config);
-+
-+void SetPop(std::shared_ptr<altintegration::PayloadsProvider>& db);
-+
-+std::string toPrettyString(const altintegration::PopContext& pop);
-+
-+} // namespace VeriBlock
-+
-+#endif // BITCASH_SRC_VBK_POP_COMMON_HPP
+// Copyright (c) 2019-2020 Xenios SEZC
+// https://www.veriblock.org
+// Distributed under the MIT software license, see the accompanying
+// file COPYING or http://www.opensource.org/licenses/mit-license.php.
+
+#ifndef BITCASH_SRC_VBK_POP_COMMON_HPP
+#define BITCASH_SRC_VBK_POP_COMMON_HPP
+
+#include <veriblock/pop_context.hpp>
+
+namespace VeriBlock {
+
+altintegration::PopContext& GetPop();
+
+void StopPop();
+
+void SetPopConfig(const altintegration::Config& config);
+
+void SetPop(std::shared_ptr<altintegration::PayloadsProvider>& db);
+
+std::string toPrettyString(const altintegration::PopContext& pop);
+
+} // namespace VeriBlock
+
+#endif // BITCASH_SRC_VBK_POP_COMMON_HPP
 ```
 
-[<font style="color: red"> src/vbk/pop_common.cpp </font>]  
+[<font style="color: red"> src/vbk/pop_common.cpp </font>]
 ```diff
-+// Copyright (c) 2019-2020 Xenios SEZC
-+// https://www.veriblock.org
-+// Distributed under the MIT software license, see the accompanying
-+// file COPYING or http://www.opensource.org/licenses/mit-license.php.
-+
-+#include <vbk/pop_common.hpp>
-+
-+namespace VeriBlock {
-+
-+static std::shared_ptr<altintegration::PopContext> app = nullptr;
-+static std::shared_ptr<altintegration::Config> config = nullptr;
-+
-+altintegration::PopContext& GetPop()
-+{
-+    assert(app && "Altintegration is not initialized. Invoke SetPop.");
-+    return *app;
-+}
-+
-+void SetPopConfig(const altintegration::Config& newConfig)
-+{
-+    config = std::make_shared<altintegration::Config>(newConfig);
-+}
-+
-+void SetPop(std::shared_ptr<altintegration::PayloadsProvider>& db)
-+{
-+    assert(config && "Config is not initialized. Invoke SetPopConfig");
-+    app = altintegration::PopContext::create(config, db);
-+}
-+
-+std::string toPrettyString(const altintegration::PopContext& pop)
-+{
-+    return pop.altTree->toPrettyString();
-+}
-+
-+} // namespace VeriBlock
+// Copyright (c) 2019-2020 Xenios SEZC
+// https://www.veriblock.org
+// Distributed under the MIT software license, see the accompanying
+// file COPYING or http://www.opensource.org/licenses/mit-license.php.
+
+#include <vbk/pop_common.hpp>
+
+namespace VeriBlock {
+
+static std::shared_ptr<altintegration::PopContext> app = nullptr;
+static std::shared_ptr<altintegration::Config> config = nullptr;
+
+altintegration::PopContext& GetPop()
+{
+    assert(app && "Altintegration is not initialized. Invoke SetPop.");
+    return *app;
+}
+
+void StopPop()
+{
+    if (app) {
+        app->shutdown();
+    }
+}
+
+void SetPopConfig(const altintegration::Config& newConfig)
+{
+    config = std::make_shared<altintegration::Config>(newConfig);
+}
+
+void SetPop(std::shared_ptr<altintegration::PayloadsProvider>& db)
+{
+    assert(config && "Config is not initialized. Invoke SetPopConfig");
+    app = altintegration::PopContext::create(config, db);
+}
+
+std::string toPrettyString(const altintegration::PopContext& pop)
+{
+    return pop.altTree->toPrettyString();
+}
+
+} // namespace VeriBlock
 ```
 
 ## Add the initial configuration of the VeriBlock and Bitcoin blockchains.
@@ -1013,7 +1040,7 @@ inline std::vector<uint8_t> uintToVector(const uint256& from)
 #endif //BITC_SRC_VBK_UTIL_HPP
 ```
 
-## Now update the initializatio of the bitcashd, bitcash-wallet, etc to setup VeriBlock config.
+## Now update the initialization of the bitcashd, bitcash-wallet, etc to setup VeriBlock config.
 
 [<font style="color: red"> src/bitcashd.cpp </font>]
 ```diff
@@ -1081,7 +1108,7 @@ _method CreateAndProcessBlock_
      CBlock& block = pblocktemplate->block;
 ```
 
-### The last step is to update makefiles. Add our new source files.
+### The last step is to update makefiles. Add new source files.
 
 [<font style="color: red"> src/Makefile.am </font>]
 ```diff
@@ -1094,3 +1121,523 @@ _method CreateAndProcessBlock_
    bech32.cpp \
    chainparams.cpp \
 ```
+
+## Update BitCash persistence to store VeriBlock related data.
+
+### Add PayloadsProvider
+
+We should add a PayloadsProvider for the VeriBlock library. The main idea of such class is that we reuse the existing BitCash database. Our library allows to use the native implementation of the database. We implement it with PayloadsProvider class which is inherited from the [altintegration::PayloadsProvider class](https://veriblock-pop-cpp.netlify.app/structaltintegration_1_1payloadsprovider).
+First step is to create two new source files: payloads_provider.hpp, block_batch_adaptor.hpp.
+
+[<font style="color: red"> src/vbk/adaptors/payloads_provider.hpp </font>]
+```diff
+// Copyright (c) 2019-2020 Xenios SEZC
+// https://www.veriblock.org
+// Distributed under the MIT software license, see the accompanying
+// file LICENSE or http://www.opensource.org/licenses/mit-license.php.
+
+#ifndef INTEGRATION_REFERENCE_BITC_PAYLOADS_PROVIDER_HPP
+#define INTEGRATION_REFERENCE_BITC_PAYLOADS_PROVIDER_HPP
+
+#include <dbwrapper.h>
+#include <vbk/pop_common.hpp>
+#include <veriblock/storage/payloads_provider.hpp>
+
+namespace VeriBlock {
+
+constexpr const char DB_VBK_PREFIX = '^';
+constexpr const char DB_VTB_PREFIX = '<';
+constexpr const char DB_ATV_PREFIX = '>';
+
+struct PayloadsProvider : public altintegration::PayloadsProvider {
+    using base = altintegration::PayloadsProvider;
+    using key_t = std::vector<uint8_t>;
+    using value_t = std::vector<uint8_t>;
+
+    ~PayloadsProvider() = default;
+
+    PayloadsProvider(CDBWrapper& db) : db_(db) {}
+
+    void write(const altintegration::PopData& pop)
+    {
+        auto batch = CDBBatch(db_);
+        for (const auto& b : pop.context) {
+            batch.Write(std::make_pair(DB_VBK_PREFIX, b.getId()), b);
+        }
+        for (const auto& b : pop.vtbs) {
+            batch.Write(std::make_pair(DB_VTB_PREFIX, b.getId()), b);
+        }
+        for (const auto& b : pop.atvs) {
+            batch.Write(std::make_pair(DB_ATV_PREFIX, b.getId()), b);
+        }
+        bool ret = db_.WriteBatch(batch, true);
+        VBK_ASSERT_MSG(ret, "payloads write batch failed");
+        batch.Clear();
+    }
+
+    template <typename pop_t>
+    bool getPayloads(char dbPrefix, const std::vector<typename pop_t::id_t>& ids, std::vector<pop_t>& out, altintegration::ValidationState& state)
+    {
+        auto& mempool = *GetPop().mempool;
+        out.reserve(ids.size());
+        for (size_t i = 0; i < ids.size(); i++) {
+            pop_t value;
+            const auto* memval = mempool.get<pop_t>(ids[i]);
+            if (memval != nullptr) {
+                value = *memval;
+            } else {
+                if (!db_.Read(std::make_pair(dbPrefix, ids[i]), value)) {
+                    return state.Invalid(pop_t::name() + "-read-error", i);
+                }
+            }
+            out.push_back(value);
+        }
+        return true;
+    }
+
+    bool getATVs(const std::vector<altintegration::ATV::id_t>& ids,
+        std::vector<altintegration::ATV>& out,
+        altintegration::ValidationState& state) override
+    {
+        return getPayloads(DB_ATV_PREFIX, ids, out, state);
+    }
+
+    bool getVTBs(const std::vector<altintegration::VTB::id_t>& ids,
+        std::vector<altintegration::VTB>& out,
+        altintegration::ValidationState& state) override
+    {
+        return getPayloads(DB_VTB_PREFIX, ids, out, state);
+    }
+
+    bool getVBKs(const std::vector<altintegration::VbkBlock::id_t>& ids,
+        std::vector<altintegration::VbkBlock>& out,
+        altintegration::ValidationState& state) override
+    {
+        return getPayloads(DB_VBK_PREFIX, ids, out, state);
+    }
+
+private:
+    CDBWrapper& db_;
+};
+
+} // namespace VeriBlock
+
+#endif //INTEGRATION_REFERENCE_BITC_PAYLOADS_PROVIDER_HPP
+```
+
+[<font style="color: red"> src/vbk/adaptors/block_batch_adaptor.hpp </font>]
+```diff
+// Copyright (c) 2019-2020 Xenios SEZC
+// https://www.veriblock.org
+// Distributed under the MIT software license, see the accompanying
+// file LICENSE or http://www.opensource.org/licenses/mit-license.php.
+
+#ifndef INTEGRATION_REFERENCE_BITC_BLOCK_BATCH_ADAPTOR_HPP
+#define INTEGRATION_REFERENCE_BITC_BLOCK_BATCH_ADAPTOR_HPP
+
+#include <dbwrapper.h>
+#include <veriblock/storage/block_batch_adaptor.hpp>
+
+namespace VeriBlock {
+
+constexpr const char DB_BTC_BLOCK = 'Q';
+constexpr const char DB_BTC_TIP = 'q';
+constexpr const char DB_VBK_BLOCK = 'W';
+constexpr const char DB_VBK_TIP = 'w';
+constexpr const char DB_ALT_BLOCK = 'E';
+constexpr const char DB_ALT_TIP = 'e';
+
+struct BlockBatchAdaptor : public altintegration::BlockBatchAdaptor {
+    ~BlockBatchAdaptor() override = default;
+
+    static std::pair<char, std::string> vbktip()
+    {
+        return std::make_pair(DB_VBK_TIP, "vbktip");
+    }
+    static std::pair<char, std::string> btctip()
+    {
+        return std::make_pair(DB_BTC_TIP, "btctip");
+    }
+    static std::pair<char, std::string> alttip()
+    {
+        return std::make_pair(DB_ALT_TIP, "alttip");
+    }
+
+    explicit BlockBatchAdaptor(CDBBatch& batch) : batch_(batch)
+    {
+    }
+
+    bool writeBlock(const altintegration::BlockIndex<altintegration::BtcBlock>& value) override
+    {
+        batch_.Write(std::make_pair(DB_BTC_BLOCK, getHash(value)), value);
+        return true;
+    };
+    bool writeBlock(const altintegration::BlockIndex<altintegration::VbkBlock>& value) override
+    {
+        batch_.Write(std::make_pair(DB_VBK_BLOCK, getHash(value)), value);
+        return true;
+    };
+    bool writeBlock(const altintegration::BlockIndex<altintegration::AltBlock>& value) override
+    {
+        batch_.Write(std::make_pair(DB_ALT_BLOCK, getHash(value)), value);
+        return true;
+    };
+
+    bool writeTip(const altintegration::BlockIndex<altintegration::BtcBlock>& value) override
+    {
+        batch_.Write(btctip(), getHash(value));
+        return true;
+    };
+    bool writeTip(const altintegration::BlockIndex<altintegration::VbkBlock>& value) override
+    {
+        batch_.Write(vbktip(), getHash(value));
+        return true;
+    };
+    bool writeTip(const altintegration::BlockIndex<altintegration::AltBlock>& value) override
+    {
+        batch_.Write(alttip(), getHash(value));
+        return true;
+    };
+
+
+private:
+    CDBBatch& batch_;
+
+    template <typename T>
+    typename T::hash_t getHash(const T& c)
+    {
+        return c.getHash();
+    }
+};
+
+} // namespace VeriBlock
+
+#endif //INTEGRATION_REFERENCE_BITC_BLOCK_BATCH_ADAPTOR_HPP
+```
+
+### Create wrappers for such entities.
+
+[<font style="color: red"> src/vbk/pop_service.hpp </font>]
+```diff
+// Copyright (c) 2019-2020 Xenios SEZC
+// https://www.veriblock.org
+// Distributed under the MIT software license, see the accompanying
+// file COPYING or http://www.opensource.org/licenses/mit-license.php.
+
+#ifndef BITCASH_SRC_VBK_POP_SERVICE_HPP
+#define BITCASH_SRC_VBK_POP_SERVICE_HPP
+
+#include <vbk/adaptors/block_batch_adaptor.hpp>
+#include <vbk/adaptors/payloads_provider.hpp>
+#include <vbk/pop_common.hpp>
+#include <vbk/util.hpp>
+
+class CBlockTreeDB;
+class CDBIterator;
+class CDBWrapper;
+
+namespace VeriBlock {
+
+void SetPop(CDBWrapper& db);
+
+PayloadsProvider& GetPayloadsProvider();
+
+//! returns true if all tips are stored in database, false otherwise
+bool hasPopData(CBlockTreeDB& db);
+altintegration::PopData getPopData();
+void saveTrees(altintegration::BlockBatchAdaptor& batch);
+bool loadTrees(CDBIterator& iter);
+
+} // namespace VeriBlock
+
+#endif //BITCASH_SRC_VBK_POP_SERVICE_HPP
+```
+
+[<font style="color: red"> src/vbk/pop_service.cpp </font>]
+```diff
+// Copyright (c) 2019-2020 Xenios SEZC
+// https://www.veriblock.org
+// Distributed under the MIT software license, see the accompanying
+// file COPYING or http://www.opensource.org/licenses/mit-license.php.
+
+#include <dbwrapper.h>
+#include <init.h>
+#include <txdb.h>
+#include <validation.h>
+#include <veriblock/storage/util.hpp>
+
+#ifdef WIN32
+#include <boost/thread/interruption.hpp>
+#endif //WIN32
+
+#include <vbk/pop_common.hpp>
+#include <vbk/pop_service.hpp>
+
+namespace VeriBlock {
+
+static std::shared_ptr<PayloadsProvider> payloads = nullptr;
+static std::vector<altintegration::PopData> disconnected_popdata;
+
+void SetPop(CDBWrapper& db)
+{
+    payloads = std::make_shared<PayloadsProvider>(db);
+    std::shared_ptr<altintegration::PayloadsProvider> dbrepo = payloads;
+    SetPop(dbrepo);
+}
+
+PayloadsProvider& GetPayloadsProvider()
+{
+    return *payloads;
+}
+
+bool hasPopData(CBlockTreeDB& db)
+{
+    return db.Exists(BlockBatchAdaptor::btctip()) && db.Exists(BlockBatchAdaptor::vbktip()) && db.Exists(BlockBatchAdaptor::alttip());
+}
+
+void saveTrees(altintegration::BlockBatchAdaptor& batch)
+{
+    AssertLockHeld(cs_main);
+    altintegration::SaveAllTrees(*GetPop().altTree, batch);
+}
+
+template <typename BlockTree>
+bool LoadTree(CDBIterator& iter, char blocktype, std::pair<char, std::string> tiptype, BlockTree& out, altintegration::ValidationState& state)
+{
+    using index_t = typename BlockTree::index_t;
+    using block_t = typename index_t::block_t;
+    using hash_t = typename BlockTree::hash_t;
+
+    // Load tip
+    hash_t tiphash;
+    std::pair<char, std::string> ckey;
+
+    iter.Seek(tiptype);
+    if (!iter.Valid()) {
+        // no valid tip is stored = no need to load anything
+        return error("%s: failed to load %s tip", block_t::name());
+    }
+    if (!iter.GetKey(ckey)) {
+        return error("%s: failed to find key %c:%s in %s", __func__, tiptype.first, tiptype.second, block_t::name());
+    }
+    if (ckey != tiptype) {
+        return error("%s: bad key for tip %c:%s in %s", __func__, tiptype.first, tiptype.second, block_t::name());
+    }
+    if (!iter.GetValue(tiphash)) {
+        return error("%s: failed to read tip value in %s", __func__, block_t::name());
+    }
+
+    std::vector<index_t> blocks;
+
+    // Load blocks
+    iter.Seek(std::make_pair(blocktype, hash_t()));
+    while (iter.Valid()) {
+#if defined BOOST_THREAD_PROVIDES_INTERRUPTIONS
+        boost::this_thread::interruption_point();
+#endif
+        if (ShutdownRequested()) return false;
+        std::pair<char, hash_t> key;
+        if (iter.GetKey(key) && key.first == blocktype) {
+            index_t diskindex;
+            if (iter.GetValue(diskindex)) {
+                blocks.push_back(diskindex);
+                iter.Next();
+            } else {
+                return error("%s: failed to read %s block", __func__, block_t::name());
+            }
+        } else {
+            break;
+        }
+    }
+
+    // sort blocks by height
+    std::sort(blocks.begin(), blocks.end(), [](const index_t& a, const index_t& b) {
+        return a.getHeight() < b.getHeight();
+    });
+    if (!altintegration::LoadTree(out, blocks, tiphash, state)) {
+        return error("%s: failed to load tree %s", __func__, block_t::name());
+    }
+
+    auto* tip = out.getBestChain().tip();
+    assert(tip);
+    LogPrintf("Loaded %d blocks in %s tree with tip %s\n", out.getBlocks().size(), block_t::name(), tip->toShortPrettyString());
+
+    return true;
+}
+
+bool loadTrees(CDBIterator& iter)
+{
+    auto& pop = GetPop();
+    altintegration::ValidationState state;
+    if (!LoadTree(iter, DB_BTC_BLOCK, BlockBatchAdaptor::btctip(), pop.altTree->btc(), state)) {
+        return error("%s: failed to load BTC tree %s", __func__, state.toString());
+    }
+    if (!LoadTree(iter, DB_VBK_BLOCK, BlockBatchAdaptor::vbktip(), pop.altTree->vbk(), state)) {
+        return error("%s: failed to load VBK tree %s", __func__, state.toString());
+    }
+    if (!LoadTree(iter, DB_ALT_BLOCK, BlockBatchAdaptor::alttip(), *pop.altTree, state)) {
+        return error("%s: failed to load ALT tree %s", __func__, state.toString());
+    }
+    return true;
+}
+
+} // namespace VeriBlock
+```
+
+### Now we have to init the VeriBlock storage during the BitCash initializion proccess.
+
+[<font style="color: red"> src/init.cpp </font>]
+```diff
+ #include <zmq/zmqnotificationinterface.h>
+ #endif
+
++#include <vbk/pop_service.hpp>
++
+```
+
+_method Shutdown_
+```diff
+     // CScheduler/checkqueue threadGroup
+     threadGroup.interrupt_all();
+     threadGroup.join_all();
++    VeriBlock::StopPop();
+
+     if (g_is_mempool_loaded && gArgs.GetArg("-persistmempool", DEFAULT_PERSIST_MEMPOOL)) {
+         DumpMempool();
+```
+
+_method AppInitMain_
+```diff
+                 // fails if it's still open from the previous loop. Close it first:
+                 pblocktree.reset();
+                 pblocktree.reset(new CBlockTreeDB(nBlockTreeDBCache, false, fReset));
++                // VeriBlock
++                VeriBlock::SetPop(*pblocktree);
+
+                 if (fReset) {
+                     pblocktree->WriteReindexing(true);
+```
+
+[<font style="color: red"> src/txdb.cpp </font>]
+```diff
+ #include <boost/thread.hpp>
+
++#include <vbk/pop_service.hpp>
++
+ static const char DB_COIN = 'C';
+ static const char DB_COINS = 'c';
+```
+
+_method  CBlockTreeDB::WriteBatchSync_
+```diff
+         batch.Write(std::make_pair(DB_BLOCK_INDEX, (*it)->GetBlockHash()), CDiskBlockIndex(*it));
+     }
++
++    // VeribBlock: write BTC/VBK/ALT blocks
++    auto adaptor = VeriBlock::BlockBatchAdaptor(batch);
++    VeriBlock::saveTrees(adaptor);
+     return WriteBatch(batch, true);
+```
+
+[<font style="color: red"> src/validation.cpp </font>]
+```diff
+ #include <boost/algorithm/string/join.hpp>
+ #include <boost/thread.hpp>
+
++#include <vbk/pop_service.hpp>
++
+ #if defined(NDEBUG)
+```
+
+_method CChainState::LoadBlockIndex_
+```diff
+     if (!blocktree.LoadBlockIndexGuts(consensus_params, [this](const uint256& hash){ return this->InsertBlockIndex(hash); }))
+         return false;
+
++    // VeriBlock
++    if(!VeriBlock::hasPopData(blocktree)) {
++        LogPrintf("BTC/VBK/ALT tips not found... skipping block index loading\n");
++        return true;
++    }
++
+     boost::this_thread::interruption_point();     if (!blocktree.LoadBlockIndexGuts(consensus_params, [this](const uint256& hash){ return this->InsertBlockIndex(hash); }))
+         return false;
+
++    // VeriBlock
++    if(!VeriBlock::hasPopData(blocktree)) {
++        LogPrintf("BTC/VBK/ALT tips not found... skipping block index loading\n");
++        return true;
++    }
++
+     boost::this_thread::interruption_point();
+```
+```diff
+             pindexBestHeader = pindex;
+     }
+
++    // VeriBlock
++    // get best chain from ALT tree and update vBTC`s best chain
++    {
++        AssertLockHeld(cs_main);
++
++        // load blocks
++        std::unique_ptr<CDBIterator> pcursor(blocktree.NewIterator());
++        if(!VeriBlock::loadTrees(*pcursor)) {
++            return false;
++        }
++
++        // ALT tree tip should be set - this is our last best tip
++        auto *tip = VeriBlock::GetPop().altTree->getBestChain().tip();
++        assert(tip && "we could not load tip of alt block");
++        uint256 hash(tip->getHash());
++
++        CBlockIndex* index = LookupBlockIndex(hash);
++        assert(index);
++        if(index->IsValid(BLOCK_VALID_TREE)) {
++            pindexBestHeader = index;
++        } else {
++            return false;
++        }
++    }
++
+     return true;
+```
+
+### The last step is to update test constructor of the TestingSetup struct in the test_bitcash.cpp.
+
+[<font style="color: red"> src/test/test_bitcash.cpp </font>]
+```diff
+
+ #include <script/sigcache.h>
++#include <vbk/pop_service.hpp>
+
+```
+
+_method BasicTestingSetup::BasicTestingSetup_
+```diff
+         fCheckBlockIndex = true;
+         SelectParams(chainName);
++        // VeriBlock
++        VeriBlock::selectPopConfig("regtest", "regtest", true);
+         noui_connect();
+```
+
+_method TestingSetup::TestingSetup_
+```diff
+         pblocktree.reset(new CBlockTreeDB(1 << 20, true));
++        // VeriBlock
++        VeriBlock::SetPop(*pblocktree);
++
+         pcoinsdbview.reset(new CCoinsViewDB(1 << 23, true));
+```
+
+_method TestingSetup::~TestingSetup_
+```diff
+         threadGroup.interrupt_all();
+         threadGroup.join_all();
++        VeriBlock::StopPop();
+         GetMainSignals().FlushBackgroundCallbacks();
+         GetMainSignals().UnregisterBackgroundSignalScheduler();
+```
+
+## Add Pop mempool

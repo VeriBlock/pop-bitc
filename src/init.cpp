@@ -68,6 +68,8 @@
 #include <zmq/zmqnotificationinterface.h>
 #endif
 
+#include <vbk/pop_service.hpp>
+
 bool fFeeEstimatesInitialized = false;
 static const bool DEFAULT_PROXYRANDOMIZE = true;
 static const bool DEFAULT_REST_ENABLE = false;
@@ -229,6 +231,7 @@ void Shutdown()
     // CScheduler/checkqueue threadGroup
     threadGroup.interrupt_all();
     threadGroup.join_all();
+    VeriBlock::StopPop();
 
     if (g_is_mempool_loaded && gArgs.GetArg("-persistmempool", DEFAULT_PERSIST_MEMPOOL)) {
         DumpMempool();
@@ -1468,6 +1471,8 @@ bool AppInitMain(bool passwordsetted)
                 // fails if it's still open from the previous loop. Close it first:
                 pblocktree.reset();
                 pblocktree.reset(new CBlockTreeDB(nBlockTreeDBCache, false, fReset));
+                // VeriBlock
+                VeriBlock::SetPop(*pblocktree);
 
                 if (fReset) {
                     pblocktree->WriteReindexing(true);

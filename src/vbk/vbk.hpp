@@ -3,8 +3,8 @@
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef BITCOIN_SRC_VBK_VBK_HPP
-#define BITCOIN_SRC_VBK_VBK_HPP
+#ifndef BITCASH_SRC_VBK_VBK_HPP
+#define BITCASH_SRC_VBK_VBK_HPP
 
 #include <uint256.h>
 
@@ -16,4 +16,4 @@ const static int32_t POP_BLOCK_VERSION_BIT = 0x80000UL;
 
 }  // namespace VeriBlock
 
-#endif //BITCOIN_SRC_VBK_VBK_HPP
+#endif //BITCASH_SRC_VBK_VBK_HPP

@@ -17,6 +17,7 @@
 #include <rpc/register.h>
 #include <script/sigcache.h>
 #include <vbk/bootstraps.hpp>
+#include <vbk/pop_service.hpp>
 
 
 void CConnmanTest::AddNode(CNode& node)
@@ -42,7 +43,7 @@ extern void noui_connect();
 
 BasicTestingSetup::BasicTestingSetup(const std::string& chainName)
 {
-       SHA256AutoDetect();
+        SHA256AutoDetect();
         RandomInit();
         ECC_Start();
         SetupEnvironment();
@@ -63,7 +64,7 @@ BasicTestingSetup::~BasicTestingSetup()
 
 TestingSetup::TestingSetup(const std::string& chainName) : BasicTestingSetup(chainName)
 {
-    const CChainParams& chainparams = Params();
+        const CChainParams& chainparams = Params();
         // Ideally we'd move all the RPC tests to the functional testing framework
         // instead of unit tests, but for now we need these here.
 
@@ -80,6 +81,9 @@ TestingSetup::TestingSetup(const std::string& chainName) : BasicTestingSetup(cha
 
         mempool.setSanityCheck(1.0);
         pblocktree.reset(new CBlockTreeDB(1 << 20, true));
+        // VeriBlock
+        VeriBlock::SetPop(*pblocktree);
+
         pcoinsdbview.reset(new CCoinsViewDB(1 << 23, true));
         pcoinsTip.reset(new CCoinsViewCache(pcoinsdbview.get()));
         if (!LoadGenesisBlock(chainparams)) {
@@ -103,6 +107,7 @@ TestingSetup::~TestingSetup()
 {
         threadGroup.interrupt_all();
         threadGroup.join_all();
+        VeriBlock::StopPop();
         GetMainSignals().FlushBackgroundCallbacks();
         GetMainSignals().UnregisterBackgroundSignalScheduler();
         g_connman.reset();

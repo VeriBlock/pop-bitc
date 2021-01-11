@@ -3,8 +3,8 @@
 // Distributed under the MIT software license, see the accompanying
 // file LICENSE or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef INTEGRATION_REFERENCE_BTC_PAYLOADS_PROVIDER_HPP
-#define INTEGRATION_REFERENCE_BTC_PAYLOADS_PROVIDER_HPP
+#ifndef INTEGRATION_REFERENCE_BITC_PAYLOADS_PROVIDER_HPP
+#define INTEGRATION_REFERENCE_BITC_PAYLOADS_PROVIDER_HPP
 
 #include <dbwrapper.h>
 #include <vbk/pop_common.hpp>
@@ -89,4 +89,4 @@ private:
 
 } // namespace VeriBlock
 
-#endif //INTEGRATION_REFERENCE_BTC_PAYLOADS_PROVIDER_HPP
+#endif //INTEGRATION_REFERENCE_BITC_PAYLOADS_PROVIDER_HPP

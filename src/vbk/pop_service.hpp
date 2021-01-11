@@ -3,12 +3,13 @@
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef BITCOIN_SRC_VBK_POP_SERVICE_HPP
-#define BITCOIN_SRC_VBK_POP_SERVICE_HPP
+#ifndef BITCASH_SRC_VBK_POP_SERVICE_HPP
+#define BITCASH_SRC_VBK_POP_SERVICE_HPP
 
-#include <veriblock/storage/block_batch_adaptor.hpp>
+#include <vbk/adaptors/block_batch_adaptor.hpp>
 #include <vbk/adaptors/payloads_provider.hpp>
-#include "pop_common.hpp"
+#include <vbk/pop_common.hpp>
+#include <vbk/util.hpp>
 
 class CBlockTreeDB;
 class CDBIterator;
@@ -28,4 +29,4 @@ bool loadTrees(CDBIterator& iter);
 
 } // namespace VeriBlock
 
-#endif //BITCOIN_SRC_VBK_POP_SERVICE_HPP
+#endif //BITCASH_SRC_VBK_POP_SERVICE_HPP

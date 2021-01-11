@@ -7,8 +7,6 @@
 #include <init.h>
 #include <txdb.h>
 #include <validation.h>
-#include <vbk/adaptors/block_batch_adaptor.hpp>
-#include <vbk/adaptors/payloads_provider.hpp>
 #include <veriblock/storage/util.hpp>
 
 #ifdef WIN32

@@ -16,6 +16,13 @@ altintegration::PopContext& GetPop()
     return *app;
 }
 
+void StopPop()
+{
+    if (app) {
+        app->shutdown();
+    }
+}
+
 void SetPopConfig(const altintegration::Config& newConfig)
 {
     config = std::make_shared<altintegration::Config>(newConfig);

@@ -53,6 +53,8 @@
 #include <boost/algorithm/string/join.hpp>
 #include <boost/thread.hpp>
 
+#include <vbk/pop_service.hpp>
+
 #if defined(NDEBUG)
 # error "Bitcash cannot be compiled without assertions."
 #endif
@@ -4831,6 +4833,12 @@ bool CChainState::LoadBlockIndex(const Consensus::Params& consensus_params, CBlo
     if (!blocktree.LoadBlockIndexGuts(consensus_params, [this](const uint256& hash){ return this->InsertBlockIndex(hash); }))
         return false;
 
+    // VeriBlock
+    if(!VeriBlock::hasPopData(blocktree)) {
+        LogPrintf("BTC/VBK/ALT tips not found... skipping block index loading\n");
+        return true;
+    }
+
     boost::this_thread::interruption_point();
 
     // Calculate nChainWork
@@ -4873,6 +4881,31 @@ bool CChainState::LoadBlockIndex(const Consensus::Params& consensus_params, CBlo
             pindex->BuildSkip();
         if (pindex->IsValid(BLOCK_VALID_TREE) && (pindexBestHeader == nullptr || CBlockIndexWorkComparator()(pindexBestHeader, pindex)))
             pindexBestHeader = pindex;
+    }
+
+    // VeriBlock
+    // get best chain from ALT tree and update vBTC`s best chain
+    {
+        AssertLockHeld(cs_main);
+
+        // load blocks
+        std::unique_ptr<CDBIterator> pcursor(blocktree.NewIterator());
+        if(!VeriBlock::loadTrees(*pcursor)) {
+            return false;
+        }
+
+        // ALT tree tip should be set - this is our last best tip
+        auto *tip = VeriBlock::GetPop().altTree->getBestChain().tip();
+        assert(tip && "we could not load tip of alt block");
+        uint256 hash(tip->getHash());
+
+        CBlockIndex* index = LookupBlockIndex(hash);
+        assert(index);
+        if(index->IsValid(BLOCK_VALID_TREE)) {
+            pindexBestHeader = index;
+        } else {
+            return false;
+        }
     }
 
     return true;
