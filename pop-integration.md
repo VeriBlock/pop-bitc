@@ -151,7 +151,7 @@ _class base_blob_
 
 ### Define POP_BLOCK_VERSION_BIT flag.
 [<font style="color: red"> src/vbk/vbk.hpp </font>]
-```diff
+```
 #ifndef BITCASH_SRC_VBK_VBK_HPP
 #define BITCASH_SRC_VBK_VBK_HPP
 
@@ -622,7 +622,7 @@ Before using objects from the VeriBlock library, we should define some VeriBlock
 But first we will add functions that wrap interaction with the library. Create two new source files: pop_common.hpp, pop_common.cpp.
 
 [<font style="color: red"> src/vbk/pop_common.hpp </font>]
-```diff
+```
 // Copyright (c) 2019-2020 Xenios SEZC
 // https://www.veriblock.org
 // Distributed under the MIT software license, see the accompanying
@@ -651,7 +651,7 @@ std::string toPrettyString(const altintegration::PopContext& pop);
 ```
 
 [<font style="color: red"> src/vbk/pop_common.cpp </font>]
-```diff
+```
 // Copyright (c) 2019-2020 Xenios SEZC
 // https://www.veriblock.org
 // Distributed under the MIT software license, see the accompanying
@@ -701,7 +701,7 @@ std::string toPrettyString(const altintegration::PopContext& pop)
 ### Add bootstraps blocks. Create AltChainParamsBITC class with the VeriBlock configuration of the Bitcash blockchain.
 
 [<font style="color: red"> src/vbk/bootstraps.hpp </font>]
-```diff
+```
 // Copyright (c) 2019-2020 Xenios SEZC
 // https://www.veriblock.org
 // Distributed under the MIT software license, see the accompanying
@@ -769,7 +769,7 @@ void selectPopConfig(
 ```
 
 [<font style="color: red"> src/vbk/bootstraps.cpp </font>]
-```diff
+```
 // Copyright (c) 2019-2020 Xenios SEZC
 // https://www.veriblock.org
 // Distributed under the MIT software license, see the accompanying
@@ -917,7 +917,7 @@ const std::vector<std::string> testnetVBKblocks = {};
 ### Create an util.hpp file with some useful functions for the VeriBlock integration.
 
 [<font style="color: red"> src/vbk/util.hpp </font>]
-```diff
+```
 // Copyright (c) 2019-2020 Xenios SEZC
 // https://www.veriblock.org
 // Distributed under the MIT software license, see the accompanying
@@ -1130,7 +1130,7 @@ We should add a PayloadsProvider for the VeriBlock library. The main idea of suc
 First step is to create two new source files: payloads_provider.hpp, block_batch_adaptor.hpp.
 
 [<font style="color: red"> src/vbk/adaptors/payloads_provider.hpp </font>]
-```diff
+```
 // Copyright (c) 2019-2020 Xenios SEZC
 // https://www.veriblock.org
 // Distributed under the MIT software license, see the accompanying
@@ -1224,9 +1224,8 @@ private:
 
 #endif //INTEGRATION_REFERENCE_BITC_PAYLOADS_PROVIDER_HPP
 ```
-
 [<font style="color: red"> src/vbk/adaptors/block_batch_adaptor.hpp </font>]
-```diff
+```
 // Copyright (c) 2019-2020 Xenios SEZC
 // https://www.veriblock.org
 // Distributed under the MIT software license, see the accompanying
@@ -1318,7 +1317,7 @@ private:
 ### Create wrappers for such entities.
 
 [<font style="color: red"> src/vbk/pop_service.hpp </font>]
-```diff
+```
 // Copyright (c) 2019-2020 Xenios SEZC
 // https://www.veriblock.org
 // Distributed under the MIT software license, see the accompanying
@@ -1354,7 +1353,7 @@ bool loadTrees(CDBIterator& iter);
 ```
 
 [<font style="color: red"> src/vbk/pop_service.cpp </font>]
-```diff
+```
 // Copyright (c) 2019-2020 Xenios SEZC
 // https://www.veriblock.org
 // Distributed under the MIT software license, see the accompanying
@@ -1494,7 +1493,6 @@ bool loadTrees(CDBIterator& iter)
 +#include <vbk/pop_service.hpp>
 +
 ```
-
 _method Shutdown_
 ```diff
      // CScheduler/checkqueue threadGroup
@@ -1505,7 +1503,6 @@ _method Shutdown_
      if (g_is_mempool_loaded && gArgs.GetArg("-persistmempool", DEFAULT_PERSIST_MEMPOOL)) {
          DumpMempool();
 ```
-
 _method AppInitMain_
 ```diff
                  // fails if it's still open from the previous loop. Close it first:
@@ -1517,7 +1514,6 @@ _method AppInitMain_
                  if (fReset) {
                      pblocktree->WriteReindexing(true);
 ```
-
 [<font style="color: red"> src/txdb.cpp </font>]
 ```diff
  #include <boost/thread.hpp>
@@ -1527,7 +1523,6 @@ _method AppInitMain_
  static const char DB_COIN = 'C';
  static const char DB_COINS = 'c';
 ```
-
 _method  CBlockTreeDB::WriteBatchSync_
 ```diff
          batch.Write(std::make_pair(DB_BLOCK_INDEX, (*it)->GetBlockHash()), CDiskBlockIndex(*it));
@@ -1538,7 +1533,6 @@ _method  CBlockTreeDB::WriteBatchSync_
 +    VeriBlock::saveTrees(adaptor);
      return WriteBatch(batch, true);
 ```
-
 [<font style="color: red"> src/validation.cpp </font>]
 ```diff
  #include <boost/algorithm/string/join.hpp>
@@ -1548,7 +1542,6 @@ _method  CBlockTreeDB::WriteBatchSync_
 +
  #if defined(NDEBUG)
 ```
-
 _method CChainState::LoadBlockIndex_
 ```diff
      if (!blocktree.LoadBlockIndexGuts(consensus_params, [this](const uint256& hash){ return this->InsertBlockIndex(hash); }))
@@ -1612,7 +1605,6 @@ _method CChainState::LoadBlockIndex_
 +#include <vbk/pop_service.hpp>
 
 ```
-
 _method BasicTestingSetup::BasicTestingSetup_
 ```diff
          fCheckBlockIndex = true;
@@ -1621,7 +1613,6 @@ _method BasicTestingSetup::BasicTestingSetup_
 +        VeriBlock::selectPopConfig("regtest", "regtest", true);
          noui_connect();
 ```
-
 _method TestingSetup::TestingSetup_
 ```diff
          pblocktree.reset(new CBlockTreeDB(1 << 20, true));
@@ -1630,7 +1621,6 @@ _method TestingSetup::TestingSetup_
 +
          pcoinsdbview.reset(new CCoinsViewDB(1 << 23, true));
 ```
-
 _method TestingSetup::~TestingSetup_
 ```diff
          threadGroup.interrupt_all();
