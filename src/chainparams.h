@@ -89,6 +89,12 @@ public:
     const CCheckpointData& Checkpoints() const { return checkpointData; }
     const ChainTxData& TxData() const { return chainTxData; }
     void UpdateVersionBitsParameters(Consensus::DeploymentPos d, int64_t nStartTime, int64_t nTimeout);
+
+    // VeriBlock start
+    bool isPopActive(int height) const {
+            return height >= (int)consensus.VeriBlockPopSecurityHeight;
+    }
+
 protected:
     CChainParams() {}
 

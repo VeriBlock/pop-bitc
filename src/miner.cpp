@@ -46,6 +46,8 @@
 #include "RSJparser.tcc"
 #include <curl/curl.h>
 
+#include <vbk/pop_service.hpp>
+
 static size_t WriteCallback(void *contents, size_t size, size_t nmemb, void *userp)
 {
     ((std::string*)userp)->append((char*)contents, size * nmemb);
@@ -378,6 +380,13 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlockWithScriptPubKey(c
     addPackageTxs(nPackagesSelected, nDescendantsUpdated);
 
     // VeriBlock: add PopData into the block
+    if(chainparams.isPopActive(nHeight)) {
+        pblock->popData = VeriBlock::getPopData();
+        LogPrintf("pblock->popData atvs: %ld, vtbs: %ld, context: %ld \n",
+               pblock->popData.atvs.size(),
+               pblock->popData.vtbs.size(),
+               pblock->popData.context.size());
+    }
     if(!pblock->popData.empty()) {
         pblock->nVersion |= VeriBlock::POP_BLOCK_VERSION_BIT;
     }
@@ -521,6 +530,13 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(interfaces::Walle
     addPackageTxs(nPackagesSelected, nDescendantsUpdated);
 
     // VeriBlock: add PopData into the block
+    if(chainparams.isPopActive(nHeight)) {
+        pblock->popData = VeriBlock::getPopData();
+        LogPrintf("pblock->popData atvs: %ld, vtbs: %ld, context: %ld \n",
+               pblock->popData.atvs.size(),
+               pblock->popData.vtbs.size(),
+               pblock->popData.context.size());
+    }
     if(!pblock->popData.empty()) {
         pblock->nVersion |= VeriBlock::POP_BLOCK_VERSION_BIT;
     }

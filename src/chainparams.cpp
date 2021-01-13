@@ -568,7 +568,7 @@ public:
 
         // VeriBlock
         // TODO: should determine the correct height
-        // consensus.VeriBlockPopSecurityHeight = -1;
+        // consensus.VeriBlockPopSecurityHeight = 200;
 
         // The best chain should have at least this much work.
         consensus.nMinimumChainWork = uint256S("0x00");

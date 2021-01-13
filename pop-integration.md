@@ -1,13 +1,13 @@
-# Bitcash POP integration write-up
+# BitCash POP integration write-up
 
-## Bitcash clone
+## BitCash clone
 ```sh
 git clone https://github.com/WillyTheCat/BitCash.git
 ```
-## Bitcash dependencies
+## BitCash dependencies
 See [https://github.com/WillyTheCat/BitCash/tree/master/doc]
 
-### Bitcash dependencies Ubuntu example
+### BitCash dependencies Ubuntu example
 ```sh
 sudo apt-get install build-essential libtool autotools-dev automake pkg-config libssl-dev libevent-dev bsdmainutils python3
 ```
@@ -24,7 +24,7 @@ sudo apt-get install libminiupnpc-dev
 sudo apt-get install libzmq3-dev
 ```
 
-## Bitcash build
+## BitCash build
 ```sh
 cd BitCash
 ./autogen.sh
@@ -132,7 +132,7 @@ test_test_bitcash_fuzzy_LDADD = \
 ## Add PopData to the Block class
 We should add new PopData entity into the CBlock class in the block.h file and provide new nVersion flag. It is needed for storing VeriBlock specific information such as ATVs, VTBs, VBKs.
 First we will add new POP_BLOCK_VERSION_BIT flag, that will help to distinguish original blocks that don't have any VeriBlock specific data, and blocks that contain such data.
-Next, update serialization of the block, that will serialize/deserialize PopData if POP_BLOCK_VERSION_BIT is set. Finally extend serialization/deserialization for the PopData, so we can use the Bitcoin native serialization/deserialization.
+Next, update serialization of the block, that will serialize/deserialize PopData if POP_BLOCK_VERSION_BIT is set. Finally extend serialization/deserialization for the PopData, so we can use the BitCash native serialization/deserialization.
 
 ### Helper for the block hash serialization
 [<font style="color: red"> src/uint256.hpp </font>]
@@ -698,7 +698,7 @@ std::string toPrettyString(const altintegration::PopContext& pop)
 
 ## Add the initial configuration of the VeriBlock and Bitcoin blockchains.
 
-### Add bootstraps blocks. Create AltChainParamsBITC class with the VeriBlock configuration of the Bitcash blockchain.
+### Add bootstraps blocks. Create AltChainParamsBITC class with the VeriBlock configuration of the BitCash blockchain.
 
 [<font style="color: red"> src/vbk/bootstraps.hpp </font>]
 ```
@@ -1085,7 +1085,7 @@ _method AppInitRawTx_
 +        SelectParams(network);
 +        VeriBlock::selectPopConfig(gArgs);
 +    }
-
+```
 [<font style="color: red"> src/test/test_bitcash.cpp </font>]
 ```diff
  #include <rpc/register.h>
@@ -1126,7 +1126,7 @@ _method CreateAndProcessBlock_
 
 ### Add PayloadsProvider
 
-We should add a PayloadsProvider for the VeriBlock library. The main idea of such class is that we reuse the existing BitCash database. Our library allows to use the native implementation of the database. We implement it with PayloadsProvider class which is inherited from the [altintegration::PayloadsProvider class](https://veriblock-pop-cpp.netlify.app/structaltintegration_1_1payloadsprovider).
+We should add a PayloadsProvider for the VeriBlock library. The main idea of such class is that we reuse the existing BitCash database. Our library allows to use the native implementation of the database. We implement it with PayloadsProvider class which is inherited from the [altintegration::PayloadsProvider](https://veriblock-pop-cpp.netlify.app/structaltintegration_1_1payloadsprovider) class.
 First step is to create two new source files: payloads_provider.hpp, block_batch_adaptor.hpp.
 
 [<font style="color: red"> src/vbk/adaptors/payloads_provider.hpp </font>]
@@ -1630,4 +1630,504 @@ _method TestingSetup::~TestingSetup_
          GetMainSignals().UnregisterBackgroundSignalScheduler();
 ```
 
+### Before moving further we will make a short code refactoring.
+
+Create a function in the chainparams which detects if the Pop security is enabled.
+
+[<font style="color: red"> src/chainparams.h </font>]
+
+_class CChainParams_
+```diff
+     void UpdateVersionBitsParameters(Consensus::DeploymentPos d, int64_t nStartTime, int64_t nTimeout);
++
++    // VeriBlock start
++    bool isPopActive(int height) const {
++            return height >= consensus.VeriBlockPopSecurityHeight;
++    }
++
+ protected:
+```
+
+Update validation.cpp to use refactored method for detecting Pop security height.
+
+[<font style="color: red"> src/validation.cpp </font>]
+
+_method ContextualCheckBlockHeader_
+```diff
+     // VeriBlock validation
+-    if((block.nVersion & VeriBlock::POP_BLOCK_VERSION_BIT) && consensusParams.VeriBlockPopSecurityHeight > nHeight)
+-    {
+:
++    if((block.nVersion & VeriBlock::POP_BLOCK_VERSION_BIT) &&
++        !params.isPopActive(nHeight)) {
+         return state.Invalid(false, REJECT_OBSOLETE, strprintf("bad-pop-version(0x%08x)", block.nVersion),
+          strprintf("block contains PopData before PopSecurity has been enabled"));
+```
+
+Change height of the Pop security forkpoint in the regtest. It allows to properly run the Pop tests.
+
+[<font style="color: red"> src/chainparams.cpp </font>]
+
+_method CRegTestParams::CRegTestParams_
+```diff
++
++        // VeriBlock
++        // TODO: should determine the correct height
++        // consensus.VeriBlockPopSecurityHeight = 200;
+
+         // The best chain should have at least this much work.
+         consensus.nMinimumChainWork = uint256S("0x00");
+```
+
 ## Add Pop mempool
+
+Now we want to add the Pop mempool support to the BitCash. We should implement methods for the Pop payloads submitting to the mempool, fetching payloads during the block mining and removing payloads after successfully submitting a block to the blockchain.
+First we should implement methods in the pop_service.hpp pop_service.cpp source files.
+
+[<font style="color: red"> src/vbk/pop_service.hpp </font>]
+```diff
+ bool loadTrees(CDBIterator& iter);
+
++//! mempool methods
++altintegration::PopData getPopData();
++void removePayloadsFromMempool(const altintegration::PopData& popData);
++void updatePopMempoolForReorg();
++void addDisconnectedPopData(const altintegration::PopData& popData);
++
+ } // namespace VeriBlock
+```
+[<font style="color: red"> src/vbk/pop_service.cpp </font>]
+```diff
+     return true;
+ }
+
++altintegration::PopData getPopData() EXCLUSIVE_LOCKS_REQUIRED(cs_main)
++{
++    AssertLockHeld(cs_main);
++    return GetPop().mempool->getPop();
++}
++
++void removePayloadsFromMempool(const altintegration::PopData& popData) EXCLUSIVE_LOCKS_REQUIRED(cs_main)
++{
++    AssertLockHeld(cs_main);
++    GetPop().mempool->removeAll(popData);
++}
++
++void updatePopMempoolForReorg() EXCLUSIVE_LOCKS_REQUIRED(cs_main)
++{
++    auto& pop = GetPop();
++    for (const auto& popData : disconnected_popdata) {
++        pop.mempool->submitAll(popData);
++    }
++    disconnected_popdata.clear();
++}
++
++void addDisconnectedPopData(const altintegration::PopData& popData) EXCLUSIVE_LOCKS_REQUIRED(cs_main)
++{
++    disconnected_popdata.push_back(popData);
++}
++
+ } // namespace VeriBlock
+```
+
+Add popData during block mining. Update CreateNewBlock() and CreateNewBlockWithScriptPubKey() in the miner.cpp.
+
+[<font style="color: red"> src/miner.cpp </font>]
+```diff
+ #include "RSJparser.tcc"
+ #include <curl/curl.h>
+
++#include <vbk/pop_service.hpp>
++
+```
+_method BlockAssembler::CreateNewBlockWithScriptPubKey_
+```diff
+     addPackageTxs(nPackagesSelected, nDescendantsUpdated);
+
+     // VeriBlock: add PopData into the block
++    if(chainparams.isPopActive(nHeight)) {
++        pblock->popData = VeriBlock::getPopData();
++        LogPrintf("pblock->popData atvs: %ld, vtbs: %ld, context: %ld \n",
++               pblock->popData.atvs.size(),
++               pblock->popData.vtbs.size(),
++               pblock->popData.context.size());
++    }
+     if(!pblock->popData.empty()) {
+         pblock->nVersion |= VeriBlock::POP_BLOCK_VERSION_BIT;
+
+```
+_method BlockAssembler::CreateNewBlock_
+```diff
+     addPackageTxs(nPackagesSelected, nDescendantsUpdated);
+
+     // VeriBlock: add PopData into the block
++    if(chainparams.isPopActive(nHeight)) {
++        pblock->popData = VeriBlock::getPopData();
++        LogPrintf("pblock->popData atvs: %ld, vtbs: %ld, context: %ld \n",
++               pblock->popData.atvs.size(),
++               pblock->popData.vtbs.size(),
++               pblock->popData.context.size());
++    }
+     if(!pblock->popData.empty()) {
+         pblock->nVersion |= VeriBlock::POP_BLOCK_VERSION_BIT;
+```
+
+Remove popData after successfully submitting to the blockchain. Modify ConnectTip(), DisconnectTip() and UpdateMempoolForReorg() methods in the validation.cpp.
+
+[<font style="color: red"> src/validation.cpp </font>]
+
+_method UpdateMempoolForReorg_
+```diff
+     AssertLockHeld(cs_main);
+     std::vector<uint256> vHashUpdate;
++
++    // VeriBlock
++    VeriBlock::updatePopMempoolForReorg();
++
+     // disconnectpool's insertion_order index sorts the entries from
+```
+_method CChainState::DisconnectTip_
+```diff
+     }
+
++    // VeriBlock
++    VeriBlock::addDisconnectedPopData(block.popData);
++
+     chainActive.SetTip(pindexDelete->pprev);
+
+     UpdateTip(pindexDelete->pprev, chainparams);
+```
+_method CChainState::ConnectTip_
+```diff
+     mempool.removeForBlock(blockConnecting.vtx, pindexNew->nHeight);
+     disconnectpool.removeForBlock(blockConnecting.vtx);
++
++    // VeriBlock: remove from pop_mempool
++    VeriBlock::removePayloadsFromMempool(blockConnecting.popData);
++
+     // Update chainActive & related variables.
+     chainActive.SetTip(pindexNew);
+     UpdateTip(pindexNew, chainparams);
+```
+
+## Add VeriBlock AltTree
+
+At this stage we will add functions for maintaining the VeriBlock AltTree: setState(), acceptBlock(), addAllBlockPayloads(). They provide API to change the state of the VeriBlock AltTree.
+acceptBlock() - adds an altchain block into to the library;  
+addAllBlockPayloads() - adds popData for the current altchain block into the library and should be invoked before acceptBlock() call;  
+setState() - changes the state of the VeriBlock AltTree as if the provided altchain block is the current tip of the blockchain.
+
+[<font style="color: red"> src/vbk/pop_service.hpp </font>]
+```diff
+ #define BITCASH_SRC_VBK_POP_SERVICE_HPP
+
++#include <consensus/validation.h>
+ #include <vbk/adaptors/block_batch_adaptor.hpp>
+ #include <vbk/adaptors/payloads_provider.hpp>
+ #include <vbk/pop_common.hpp>
+ #include <vbk/util.hpp>
+
++typedef int64_t CAmount;
++
++class CBlockIndex;
++class CBlock;
++class CScript;
+ class CBlockTreeDB;
+ class CDBIterator;
+ class CDBWrapper;
++class CChainParams;
++class CValidationState;
+
+ namespace VeriBlock {
+
++using BlockBytes = std::vector<uint8_t>;
++using PopRewards = std::map<CScript, CAmount>;
++
+ void SetPop(CDBWrapper& db);
+```
+```diff
+ bool loadTrees(CDBIterator& iter);
+
++//! alttree methods
++bool acceptBlock(const CBlockIndex& indexNew, CValidationState& state);
++bool addAllBlockPayloads(const CBlock& block);
++bool setState(const uint256& hash, altintegration::ValidationState& state);
++
++std::vector<BlockBytes> getLastKnownVBKBlocks(size_t blocks);
++std::vector<BlockBytes> getLastKnownBTCBlocks(size_t blocks);
++
+ } // namespace VeriBlock
+```
+[<font style="color: red"> src/vbk/pop_service.cpp </font>]
+```diff
++
++bool acceptBlock(const CBlockIndex& indexNew, CValidationState& state)
++{
++    AssertLockHeld(cs_main);
++    auto containing = VeriBlock::blockToAltBlock(indexNew);
++    altintegration::ValidationState instate;
++    if (!GetPop().altTree->acceptBlockHeader(containing, instate)) {
++        LogPrintf("ERROR: alt tree cannot accept block %s\n", instate.toString());
++        return state.Invalid(false,
++                             REJECT_INVALID,
++                             "",
++                             instate.GetDebugMessage());
++    }
++    return true;
++}
++
++bool checkPopDataSize(const altintegration::PopData& popData, altintegration::ValidationState& state)
++{
++    uint32_t nPopDataSize = ::GetSerializeSize(popData, CLIENT_VERSION);
++    if (nPopDataSize >= GetPop().config->alt->getMaxPopDataSize()) {
++        return state.Invalid("popdata-oversize", "popData raw size more than allowed");
++    }
++
++    return true;
++}
++
++bool popDataStatelessValidation(const altintegration::PopData& popData, altintegration::ValidationState& state)
++{
++    auto& config = *GetPop().config;
++    for (const auto& b : popData.context) {
++        if (!altintegration::checkBlock(b, state, *config.vbk.params)) {
++            return state.Invalid("pop-vbkblock-statelessly-invalid");
++        }
++    }
++
++    for (const auto& vtb : popData.vtbs) {
++        if (!altintegration::checkVTB(vtb, state, *config.btc.params)) {
++            return state.Invalid("pop-vtb-statelessly-invalid");
++        }
++    }
++
++    for (const auto& atv : popData.atvs) {
++        if (!altintegration::checkATV(atv, state, *config.alt)) {
++            return state.Invalid("pop-atv-statelessly-invalid");
++        }
++    }
++
++    return true;
++}
++
++bool addAllBlockPayloads(const CBlock& block) EXCLUSIVE_LOCKS_REQUIRED(cs_main)
++{
++    AssertLockHeld(cs_main);
++    auto bootstrapBlockHeight = GetPop().config->alt->getBootstrapBlock().height;
++    auto hash = block.GetHash();
++    auto* index = LookupBlockIndex(hash);
++
++    if (index->nHeight == bootstrapBlockHeight) {
++        // skip bootstrap block
++        return true;
++    }
++
++    altintegration::ValidationState instate;
++
++    if (!checkPopDataSize(block.popData, instate) || !popDataStatelessValidation(block.popData, instate)) {
++        return error("[%s] block %s is not accepted because popData is invalid: %s",
++                     __func__,
++                     hash.ToString(),
++                     instate.toString());
++    }
++
++    auto& provider = GetPayloadsProvider();
++    provider.write(block.popData);
++
++    GetPop().altTree->acceptBlock(hash.asVector(), block.popData);
++
++    return true;
++}
++
++bool setState(const uint256& hash, altintegration::ValidationState& state) EXCLUSIVE_LOCKS_REQUIRED(cs_main)
++{
++    AssertLockHeld(cs_main);
++    return GetPop().altTree->setState(hash.asVector(), state);
++}
++
++std::vector<BlockBytes> getLastKnownVBKBlocks(size_t blocks)
++{
++    LOCK(cs_main);
++    return altintegration::getLastKnownBlocks(GetPop().altTree->vbk(), blocks);
++}
++
++std::vector<BlockBytes> getLastKnownBTCBlocks(size_t blocks)
++{
++    LOCK(cs_main);
++    return altintegration::getLastKnownBlocks(GetPop().altTree->btc(), blocks);
++}
++
+} // namespace VeriBlock
+```
+
+Update block processing in the ConnectBlock(), UpdateTip(), ApplyBlockUndo(), AcceptBlockHeader(), AcceptBlock(), TestBlockValidity().
+
+[<font style="color: red"> src/validation.cpp</font>]
+
+_method CChainState::DisconnectBlock_
+```diff
+     }
+
++    // VeriBlock
++    auto prevHash = pindex->pprev->GetBlockHash();
++    altintegration::ValidationState state;
++    VeriBlock::setState(prevHash, state);
++
+     // move best block pointer to prevout block
+     view.SetBestBlock(pindex->pprev->GetBlockHash());
+```
+_method CChainState::ConnectBlock_
+```diff
+         UpdateCoins(tx, view, i == 0 ? undoDummy : blockundo.vtxundo.back(), pindex->nHeight);
+     }
++
++    altintegration::ValidationState _state;
++    if(!VeriBlock::setState(pindex->GetBlockHash(), _state)) {
++        return state.Invalid(false,
++         REJECT_INVALID,
++         "bad-block-pop",
++         strprintf("Block %s is POP invalid: %s",
++          pindex->GetBlockHash().ToString(),
++          _state.toString()));
++    }
++
+     int64_t nTime3 = GetTimeMicros(); nTimeConnect += nTime3 - nTime2;
+     LogPrint(BCLog::BENCH, "      - Connect %u transactions: %.2fms (%.3fms/tx, %.3fms/txin) [%.2fs (%.2fms/blk)]\n", (unsigned)block.vtx.size(), MILLI * (nTime3 - nTime2), MILLI * (nTime3 - nTime2) / block.vtx.size(), nInputs <= 1 ? 0 : MILLI * (nTime3 - nTime2) / (nInputs-1), nTimeConnect * MICRO, nTimeConnect * MILLI / nBlocksTotal);
+```
+_method UpdateTip_
+```diff
+         g_best_block_cv.notify_all();
+     }
+
++    // VeriBlock
++    altintegration::ValidationState state;
++    bool ret = VeriBlock::setState(pindexNew->GetBlockHash(), state);
++    assert(ret && "block has been checked previously and should be valid");
++
+     std::vector<std::string> warningMessages;
+     if (!IsInitialBlockDownload())
+     {
+```
+```diff
+             DoWarning(strWarning);
+         }
+     }
+-    LogPrintf("%s: new best=%s height=%d version=0x%08x log2_work=%.8g tx=%lu date='%s' progress=%f cache=%.1fMiB(%utxo)", __func__, /* Continued */
+-      pindexNew->GetBlockHash().ToString(), pindexNew->nHeight, pindexNew->nVersion,
+-      log(pindexNew->nChainWork.getdouble())/log(2.0), (unsigned long)pindexNew->nChainTx,
+-      FormatISO8601DateTime(pindexNew->GetBlockTime()),
+-      GuessVerificationProgress(chainParams.TxData(), pindexNew), pcoinsTip->DynamicMemoryUsage() * (1.0 / (1<<20)), pcoinsTip->GetCacheSize());
+-    if (!warningMessages.empty())
+-        LogPrintf(" warning='%s'", boost::algorithm::join(warningMessages, ", ")); /* Continued */
+-    LogPrintf("\n");
++
++    auto& pop = VeriBlock::GetPop();
++    auto* vbktip = pop.altTree->vbk().getBestChain().tip();
++    auto* btctip = pop.altTree->btc().getBestChain().tip();
++    LogPrintf("%s: new best=ALT:%d:%s %s %s version=0x%08x log2_work=%.8g tx=%lu date='%s' progress=%f cache=%.1fMiB(%utxo)%s\n", __func__,
++        pindexNew->nHeight,
++        pindexNew->GetBlockHash().GetHex(),
+:
++        (vbktip ? vbktip->toShortPrettyString() : "VBK:nullptr"),
++        (btctip ? btctip->toShortPrettyString() : "BTC:nullptr"),
++        pindexNew->nVersion,
++        log(pindexNew->nChainWork.getdouble()) / log(2.0), (unsigned long)pindexNew->nChainTx,
++        FormatISO8601DateTime(pindexNew->GetBlockTime()),
++        GuessVerificationProgress(chainParams.TxData(), pindexNew), pcoinsTip->DynamicMemoryUsage() * (1.0 / (1 << 20)), pcoinsTip->GetCacheSize(),
++        !warningMessages.empty() ? strprintf(" warning='%s'", boost::algorithm::join(warningMessages, ", ")) : "");
+
+ }
+```
+_method CChainState::AcceptBlockHeader_
+```diff
+     CheckBlockIndex(chainparams.GetConsensus());
+
++    // VeriBlock
++    if(!VeriBlock::acceptBlock(*pindex, state)) {
++        return error("%s: ALT tree could not accept block ALT:%d:%s, reason: %s",
++          __func__,
++          pindex->nHeight,
++          pindex->GetBlockHash().ToString());
++    }
++
+     return true;
+```
+_method CChainState::AcceptBlock_
+```diff
+         return error("%s: %s", __func__, FormatStateMessage(state));
+     }
+
++    // VeriBlock
++    {
++        if(!VeriBlock::addAllBlockPayloads(block)) {
++            return state.Invalid(false,
++              REJECT_INVALID,
++              strprintf("Can not add POP payloads to block height: %d, hash: %s",
++              pindex->nHeight,
++              block.GetHash().ToString()));
++        }
++    }
++
+     // Header is valid/has work, merkle tree and segwit merkle tree are good...RELAY NOW
+```
+_method TestBlockValidity_
+```diff
+     if (!ContextualCheckBlock(block, state, chainparams.GetConsensus(), pindexPrev))
+         return error("%s: Consensus::ContextualCheckBlock: %s", __func__, FormatStateMessage(state));
++
++    // VeriBlock: Block that have been passed to TestBlockValidity may not exist in alt tree, because technically it was not created ("mined").
++    // in this case, add it and then remove
++    auto& tree = *VeriBlock::GetPop().altTree;
++    auto _hash = block_hash.asVector();
++    bool shouldRemove = false;
++    if (!tree.getBlockIndex(_hash)) {
++        shouldRemove = true;
++        auto containing = VeriBlock::blockToAltBlock(indexDummy);
++        altintegration::ValidationState _state;
++        bool ret = tree.acceptBlockHeader(containing, _state);
++        assert(ret && "alt tree can not accept alt block");
++
++        tree.acceptBlock(_hash, block.popData);
++    }
++
++    auto _f = altintegration::Finalizer([shouldRemove, _hash, &tree]() {
++        if (shouldRemove) {
++            tree.removeSubtree(_hash);
++        }
++    });
++
+     if (!g_chainstate.ConnectBlock(block, state, &indexDummy, viewNew, chainparams, true))
+```
+_method CChainState::LoadGenesisBlock_
+```diff             return error("%s: writing genesis block to disk failed", __func__);
+         CBlockIndex *pindex = AddToBlockIndex(block);
+         CValidationState state;
++        if (!VeriBlock::acceptBlock(*pindex, state)) {
++            return false;
++        }
+         if (!ReceivedBlockTransactions(block, state, pindex, blockPos, chainparams.GetConsensus()))
+             return error("%s: genesis block not accepted (%s)", __func__, FormatStateMessage(state));
+```
+[<font style="color: red"> src/init.cpp </font>]
+
+_method AppInitMain_
+```diff
+     g_wallet_init_interface.Start(scheduler);
+
++    {
++        auto& pop = VeriBlock::GetPop();
++        auto* tip = chainActive.Tip();
++        altintegration::ValidationState state;
++        LOCK(cs_main);
++        bool ret = VeriBlock::setState(tip->GetBlockHash(), state);
++        auto* alttip = pop.altTree->getBestChain().tip();
++        assert(ret && "bad state");
++        assert(tip->nHeight == alttip->getHeight());
++
++        LogPrintf("ALT tree best height = %d\n", pop.altTree->getBestChain().tip()->getHeight());
++        LogPrintf("VBK tree best height = %d\n", pop.altTree->vbk().getBestChain().tip()->getHeight());
++        LogPrintf("BTC tree best height = %d\n", pop.altTree->btc().getBestChain().tip()->getHeight());
++    }
++
+     return true;
+```
