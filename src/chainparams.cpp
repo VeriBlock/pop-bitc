@@ -538,7 +538,7 @@ public:
         consensus.powLimit = Consensus::PoWLimit{
             uint256S("7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"),
             *consensus.sEdgeBitsAllowed.begin()};
-        consensus.nPowTargetTimespan = 60;      // one minute for nBits adjustment
+        consensus.nPowTargetTimespan = 60; // one minute for nBits adjustment
         consensus.nEdgeBitsTargetThreshold = 2; // adjust nEdgeBits if block time is twice more/less than expected
         consensus.nPowTargetSpacing = 1 * 60;
         consensus.fPowAllowMinDifficultyBlocks = true;

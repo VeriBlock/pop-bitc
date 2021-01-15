@@ -26,8 +26,8 @@ PoW GetNextWorkRequiredBug(const CBlockIndex* pindexLast, const CBlockHeader* pb
 {
     assert(pindexLast != nullptr);
 
-
     const arith_uint256 bnPowLimit = UintToArith256(params.powLimit.uHashLimit);
+    unsigned int nProofOfWorkLimit = bnPowLimit.GetCompact();
     int64_t nPastBlocks = 24;
 
     const CBlockIndex *pindex = pindexLast;
@@ -35,6 +35,14 @@ PoW GetNextWorkRequiredBug(const CBlockIndex* pindexLast, const CBlockHeader* pb
     // make sure we have at least (nPastBlocks + 1) blocks, otherwise just return powLimit
     if (!pindexLast || pindexLast->nHeight < nPastBlocks) {
         return PoW{bnPowLimit.GetCompact(),pindexLast->nEdgeBits};
+    }
+
+    if (params.fPowAllowMinDifficultyBlocks)
+    {
+        // Return the last non-special-min-difficulty-rules-block
+        while (pindex->pprev && pindex->nHeight % params.DifficultyAdjustmentInterval() != 0 && pindex->nBits == nProofOfWorkLimit)
+            pindex = pindex->pprev;
+        return PoW{pindex->nBits,pindexLast->nEdgeBits};
     }
 
     pindex = pindexLast;
@@ -167,10 +175,19 @@ PoW GetNextWorkRequired(const CBlockIndex* pindexLast, const CBlockHeader* pbloc
     int64_t nPastBlocks = 24;
 
     const arith_uint256 bnPowLimit = UintToArith256(params.powLimit.uHashLimit);
+    unsigned int nProofOfWorkLimit = bnPowLimit.GetCompact();
 
     // make sure we have at least (nPastBlocks + 1) blocks, otherwise just return powLimit
     if (!pindexLast || pindexLast->nHeight < nPastBlocks) {
         return PoW{bnPowLimit.GetCompact(),pindexLast->nEdgeBits};
+    }
+
+    if (params.fPowAllowMinDifficultyBlocks)
+    {
+        // Return the last non-special-min-difficulty-rules-block
+        while (pindex->pprev && pindex->nHeight % params.DifficultyAdjustmentInterval() != 0 && pindex->nBits == nProofOfWorkLimit)
+            pindex = pindex->pprev;
+        return PoW{pindex->nBits,pindexLast->nEdgeBits};
     }
 
     pindex = pindexLast;

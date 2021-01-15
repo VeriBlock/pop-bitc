@@ -439,7 +439,7 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlockWithScriptPubKey(c
 
     pblock->vtx[0] = MakeTransactionRef(std::move(coinbaseTx));
     pblocktemplate->vTxFees[0] = -nFees;
-    
+
 //    LogPrintf("CreateNewBlock(): block weight: %u txs: %u fees: %ld sigops %d C nVersion %d\n", GetBlockWeight(*pblock), nBlockTx, nFees, nBlockSigOpsCost, coinbaseTx.nVersion);
 
     auto pow = GetNextWorkRequired(pindexPrev, pblock, chainparams.GetConsensus());

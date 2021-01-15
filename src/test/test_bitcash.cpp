@@ -19,7 +19,6 @@
 #include <vbk/bootstraps.hpp>
 #include <vbk/pop_service.hpp>
 
-
 void CConnmanTest::AddNode(CNode& node)
 {
     LOCK(g_connman->cs_vNodes);
@@ -133,6 +132,9 @@ TestChain100Setup::TestChain100Setup() : TestingSetup(CBaseChainParams::REGTEST)
         CBlock b = CreateAndProcessBlock(noTxns, scriptPubKey);
         m_coinbase_txns.push_back(b.vtx[0]);
     }
+
+    auto& tree = *VeriBlock::GetPop().altTree;
+    assert(tree.getBestChain().tip()->getHeight() == chainActive.Tip()->nHeight);
 }
 
 //

@@ -68,6 +68,7 @@
 #include <zmq/zmqnotificationinterface.h>
 #endif
 
+#include <vbk/log.hpp>
 #include <vbk/pop_service.hpp>
 
 bool fFeeEstimatesInitialized = false;
@@ -351,6 +352,7 @@ std::string HelpMessage(HelpMessageMode mode)
     // Do not translate _(...) -help-debug options, Many technical terms, and only a very small audience, so is unnecessary stress to translators.
     std::string strUsage = HelpMessageGroup(_("Options:"));
     strUsage += HelpMessageOpt("-?", _("Print this help message and exit"));
+
     strUsage += HelpMessageOpt("-version", _("Print version and exit"));
     strUsage += HelpMessageOpt("-alertnotify=<cmd>", _("Execute command when a relevant alert is received or we see a really long fork (%s in cmd is replaced by message)"));
     strUsage +=HelpMessageOpt("-assumevalid=<hex>", strprintf(_("If this block is in the chain assume that it and its ancestors are valid and potentially skip their script verification (0 to verify all, default: %s, testnet: %s)"), defaultChainParams->GetConsensus().defaultAssumeValid.GetHex(), testnetChainParams->GetConsensus().defaultAssumeValid.GetHex()));
@@ -844,6 +846,10 @@ void InitLogging()
     g_logger->m_print_to_console = gArgs.GetBoolArg("-printtoconsole", !gArgs.GetBoolArg("-daemon", false));
     g_logger->m_log_timestamps = gArgs.GetBoolArg("-logtimestamps", DEFAULT_LOGTIMESTAMPS);
     g_logger->m_log_time_micros = gArgs.GetBoolArg("-logtimemicros", DEFAULT_LOGTIMEMICROS);
+
+    std::string poplogverbosity = gArgs.GetArg("-poplogverbosity", "warn");
+    altintegration::SetLogger<VeriBlock::VBITCLogger>();
+    altintegration::GetLogger().level = altintegration::StringToLevel(poplogverbosity);
 
     fLogIPs = gArgs.GetBoolArg("-logips", DEFAULT_LOGIPS);
 
