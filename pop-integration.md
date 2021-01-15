@@ -2314,7 +2314,7 @@ struct E2eFixture : public TestChain100Setup {
 
         // create N blocks necessary to start POP fork resolution
         CScript scriptPubKey = CScript() << ToByteVector(coinbaseKey.GetPubKey()) << OP_CHECKSIG;
-        while (!Params().isPopActive(ChainActive().Tip()->nHeight))
+        while (!Params().isPopActive(chainActive.Tip()->nHeight))
         {
             CBlock b = CreateAndProcessBlock({}, scriptPubKey);
             m_coinbase_txns.push_back(b.vtx[0]);
@@ -2379,7 +2379,7 @@ struct E2eFixture : public TestChain100Setup {
 
     CBlock endorseAltBlockAndMine(const std::vector<uint256>& hashes, size_t generateVtbs = 0)
     {
-        return endorseAltBlockAndMine(hashes, ChainActive().Tip()->GetBlockHash(), generateVtbs);
+        return endorseAltBlockAndMine(hashes, chainActive.Tip()->GetBlockHash(), generateVtbs);
     }
 
     CBlock endorseAltBlockAndMine(const std::vector<uint256>& hashes, uint256 prevBlock, size_t generateVtbs = 0)
@@ -2423,7 +2423,7 @@ struct E2eFixture : public TestChain100Setup {
 
     CBlock endorseAltBlockAndMine(uint256 hash, size_t generateVtbs = 0)
     {
-        return endorseAltBlockAndMine(hash, ChainActive().Tip()->GetBlockHash(), generateVtbs);
+        return endorseAltBlockAndMine(hash, chainActive.Tip()->GetBlockHash(), generateVtbs);
     }
 
     CBlock endorseAltBlockAndMine(uint256 hash, uint256 prevBlock, size_t generateVtbs = 0)
@@ -2549,7 +2549,7 @@ _method InitLogging_
      g_logger->m_log_time_micros = gArgs.GetBoolArg("-logtimemicros", DEFAULT_LOGTIMEMICROS);
 
 +    std::string poplogverbosity = gArgs.GetArg("-poplogverbosity", "warn");
-+    altintegration::SetLogger<VeriBlock::VBITCLogger>();
++    altintegration::SetLogger<VeriBlock::BITCLogger>();
 +    altintegration::GetLogger().level = altintegration::StringToLevel(poplogverbosity);
 +
      fLogIPs = gArgs.GetBoolArg("-logips", DEFAULT_LOGIPS);

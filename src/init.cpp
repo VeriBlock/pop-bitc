@@ -848,7 +848,7 @@ void InitLogging()
     g_logger->m_log_time_micros = gArgs.GetBoolArg("-logtimemicros", DEFAULT_LOGTIMEMICROS);
 
     std::string poplogverbosity = gArgs.GetArg("-poplogverbosity", "warn");
-    altintegration::SetLogger<VeriBlock::VBITCLogger>();
+    altintegration::SetLogger<VeriBlock::BITCLogger>();
     altintegration::GetLogger().level = altintegration::StringToLevel(poplogverbosity);
 
     fLogIPs = gArgs.GetBoolArg("-logips", DEFAULT_LOGIPS);
