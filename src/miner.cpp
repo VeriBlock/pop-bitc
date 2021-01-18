@@ -46,6 +46,7 @@
 #include "RSJparser.tcc"
 #include <curl/curl.h>
 
+#include <vbk/merkle.hpp>
 #include <vbk/pop_service.hpp>
 
 static size_t WriteCallback(void *contents, size_t size, size_t nmemb, void *userp)
@@ -1599,7 +1600,8 @@ void IncrementExtraNonce(CBlock* pblock, const CBlockIndex* pindexPrev, unsigned
     assert(txCoinbase.vin[0].scriptSig.size() <= 100);
 
     pblock->vtx[0] = MakeTransactionRef(std::move(txCoinbase));
-    pblock->hashMerkleRoot = BlockMerkleRoot(*pblock);
+    // VeriBlock
+    pblock->hashMerkleRoot = VeriBlock::TopLevelMerkleRoot(pindexPrev, *pblock);
 }
 
 static bool ProcessBlockFound(const CBlock* pblock, const CChainParams& chainparams)

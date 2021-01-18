@@ -234,6 +234,8 @@ libbitcash_server_a_SOURCES = \
   policy/policy.cpp \
   policy/rbf.cpp \
   pow.cpp \
+  vbk/params.hpp \
+  vbk/params.cpp \
   rest.cpp \
   stratum.cpp \
   rpc/blockchain.cpp \
@@ -528,6 +530,7 @@ endif
 bitcash_tx_LDADD = \
   $(LIBUNIVALUE) \
   $(VERIBLOCK_POP_CPP_LIBS) \
+  $(LIBBITCASH_SERVER) \
   $(LIBBITCASH_COMMON) \
   $(LIBBITCASH_UTIL) \
   $(LIBBITCASH_CRYPTO) \

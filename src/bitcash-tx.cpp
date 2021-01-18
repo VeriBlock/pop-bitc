@@ -21,7 +21,7 @@
 #include <util.h>
 #include <utilmoneystr.h>
 #include <utilstrencodings.h>
-#include <vbk/bootstraps.hpp>
+#include <vbk/params.hpp>
 
 #include <memory>
 #include <stdio.h>

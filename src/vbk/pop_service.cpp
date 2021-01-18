@@ -13,29 +13,32 @@
 #include <boost/thread/interruption.hpp>
 #endif //WIN32
 
+#include <vbk/adaptors/block_provider.hpp>
 #include <vbk/pop_common.hpp>
 #include <vbk/pop_service.hpp>
 
 namespace VeriBlock {
 
-static std::shared_ptr<PayloadsProvider> payloads = nullptr;
-static std::vector<altintegration::PopData> disconnected_popdata;
+static std::shared_ptr<PayloadsProvider> payloads_provider = nullptr;
+static std::shared_ptr<BlockProvider> block_provider = nullptr;
 
 void SetPop(CDBWrapper& db)
 {
-    payloads = std::make_shared<PayloadsProvider>(db);
-    std::shared_ptr<altintegration::PayloadsProvider> dbrepo = payloads;
-    SetPop(dbrepo);
+    payloads_provider = std::make_shared<PayloadsProvider>(db);
+    block_provider = std::make_shared<BlockProvider>(db);
+
+    SetPop(std::shared_ptr<altintegration::PayloadsProvider>(payloads_provider),
+        std::shared_ptr<altintegration::BlockProvider>(block_provider));
 }
 
 PayloadsProvider& GetPayloadsProvider()
 {
-    return *payloads;
+    return *payloads_provider;
 }
 
 bool hasPopData(CBlockTreeDB& db)
 {
-    return db.Exists(BlockBatchAdaptor::btctip()) && db.Exists(BlockBatchAdaptor::vbktip()) && db.Exists(BlockBatchAdaptor::alttip());
+    return db.Exists(tip_key<altintegration::BtcBlock>()) && db.Exists(tip_key<altintegration::VbkBlock>()) && db.Exists(tip_key<altintegration::AltBlock>());
 }
 
 void saveTrees(altintegration::BlockBatchAdaptor& batch)
@@ -44,83 +47,15 @@ void saveTrees(altintegration::BlockBatchAdaptor& batch)
     altintegration::SaveAllTrees(*GetPop().altTree, batch);
 }
 
-template <typename BlockTree>
-bool LoadTree(CDBIterator& iter, char blocktype, std::pair<char, std::string> tiptype, BlockTree& out, altintegration::ValidationState& state)
-{
-    using index_t = typename BlockTree::index_t;
-    using block_t = typename index_t::block_t;
-    using hash_t = typename BlockTree::hash_t;
-
-    // Load tip
-    hash_t tiphash;
-    std::pair<char, std::string> ckey;
-
-    iter.Seek(tiptype);
-    if (!iter.Valid()) {
-        // no valid tip is stored = no need to load anything
-        return error("%s: failed to load %s tip", block_t::name());
-    }
-    if (!iter.GetKey(ckey)) {
-        return error("%s: failed to find key %c:%s in %s", __func__, tiptype.first, tiptype.second, block_t::name());
-    }
-    if (ckey != tiptype) {
-        return error("%s: bad key for tip %c:%s in %s", __func__, tiptype.first, tiptype.second, block_t::name());
-    }
-    if (!iter.GetValue(tiphash)) {
-        return error("%s: failed to read tip value in %s", __func__, block_t::name());
-    }
-
-    std::vector<index_t> blocks;
-
-    // Load blocks
-    iter.Seek(std::make_pair(blocktype, hash_t()));
-    while (iter.Valid()) {
-#if defined BOOST_THREAD_PROVIDES_INTERRUPTIONS
-        boost::this_thread::interruption_point();
-#endif
-        if (ShutdownRequested()) return false;
-        std::pair<char, hash_t> key;
-        if (iter.GetKey(key) && key.first == blocktype) {
-            index_t diskindex;
-            if (iter.GetValue(diskindex)) {
-                blocks.push_back(diskindex);
-                iter.Next();
-            } else {
-                return error("%s: failed to read %s block", __func__, block_t::name());
-            }
-        } else {
-            break;
-        }
-    }
-
-    // sort blocks by height
-    std::sort(blocks.begin(), blocks.end(), [](const index_t& a, const index_t& b) {
-        return a.getHeight() < b.getHeight();
-    });
-    if (!altintegration::LoadTree(out, blocks, tiphash, state)) {
-        return error("%s: failed to load tree %s", __func__, block_t::name());
-    }
-
-    auto* tip = out.getBestChain().tip();
-    assert(tip);
-    LogPrintf("Loaded %d blocks in %s tree with tip %s\n", out.getBlocks().size(), block_t::name(), tip->toShortPrettyString());
-
-    return true;
-}
-
 bool loadTrees(CDBIterator& iter)
 {
     auto& pop = GetPop();
     altintegration::ValidationState state;
-    if (!LoadTree(iter, DB_BTC_BLOCK, BlockBatchAdaptor::btctip(), pop.altTree->btc(), state)) {
-        return error("%s: failed to load BTC tree %s", __func__, state.toString());
+
+    if (!altintegration::LoadAllTrees(pop, state)) {
+        return error("%s: failed to load trees %s", __func__, state.toString());
     }
-    if (!LoadTree(iter, DB_VBK_BLOCK, BlockBatchAdaptor::vbktip(), pop.altTree->vbk(), state)) {
-        return error("%s: failed to load VBK tree %s", __func__, state.toString());
-    }
-    if (!LoadTree(iter, DB_ALT_BLOCK, BlockBatchAdaptor::alttip(), *pop.altTree, state)) {
-        return error("%s: failed to load ALT tree %s", __func__, state.toString());
-    }
+
     return true;
 }
 
@@ -136,18 +71,19 @@ void removePayloadsFromMempool(const altintegration::PopData& popData) EXCLUSIVE
     GetPop().mempool->removeAll(popData);
 }
 
-void updatePopMempoolForReorg() EXCLUSIVE_LOCKS_REQUIRED(cs_main)
+void addDisconnectedPopdata(const altintegration::PopData& popData) EXCLUSIVE_LOCKS_REQUIRED(cs_main)
 {
-    auto& pop = GetPop();
-    for (const auto& popData : disconnected_popdata) {
-        pop.mempool->submitAll(popData);
+    altintegration::ValidationState state;
+    auto& popmp = *VeriBlock::GetPop().mempool;
+    for (const auto& i : popData.context) {
+        popmp.submit(i, state);
     }
-    disconnected_popdata.clear();
-}
-
-void addDisconnectedPopData(const altintegration::PopData& popData) EXCLUSIVE_LOCKS_REQUIRED(cs_main)
-{
-    disconnected_popdata.push_back(popData);
+    for (const auto& i : popData.vtbs) {
+        popmp.submit(i, state);
+    }
+    for (const auto& i : popData.atvs) {
+        popmp.submit(i, state);
+    }
 }
 
 bool acceptBlock(const CBlockIndex& indexNew, CValidationState& state)
@@ -177,26 +113,8 @@ bool checkPopDataSize(const altintegration::PopData& popData, altintegration::Va
 
 bool popDataStatelessValidation(const altintegration::PopData& popData, altintegration::ValidationState& state)
 {
-    auto& config = *GetPop().config;
-    for (const auto& b : popData.context) {
-        if (!altintegration::checkBlock(b, state, *config.vbk.params)) {
-            return state.Invalid("pop-vbkblock-statelessly-invalid");
-        }
-    }
-
-    for (const auto& vtb : popData.vtbs) {
-        if (!altintegration::checkVTB(vtb, state, *config.btc.params)) {
-            return state.Invalid("pop-vtb-statelessly-invalid");
-        }
-    }
-
-    for (const auto& atv : popData.atvs) {
-        if (!altintegration::checkATV(atv, state, *config.alt)) {
-            return state.Invalid("pop-atv-statelessly-invalid");
-        }
-    }
-
-    return true;
+    auto& pop = GetPop();
+    return altintegration::checkPopData(*pop.popValidator, popData, state);
 }
 
 bool addAllBlockPayloads(const CBlock& block) EXCLUSIVE_LOCKS_REQUIRED(cs_main)

@@ -6,7 +6,7 @@
 #include <boost/test/unit_test.hpp>
 #include <chainparams.h>
 #include <consensus/validation.h>
-#include <test/util/setup_common.h>
+#include <test/test_bitcash.h>
 #include <validation.h>
 #include <vbk/pop_service.hpp>
 #include <vbk/test/util/consts.hpp>

@@ -8,23 +8,25 @@
 
 #include <boost/test/unit_test.hpp>
 
+#include <chain.h>
 #include <chainparams.h>
 #include <consensus/validation.h>
 #include <test/test_bitcash.h>
-#include <txmempool.h>
 #include <validation.h>
-
 #include <vbk/bootstraps.hpp>
-#include <vbk/pop_service.hpp>
+#include <vbk/log.hpp>
 #include <vbk/util.hpp>
-
 #include <veriblock/alt-util.hpp>
 #include <veriblock/mempool.hpp>
-#include <veriblock/mock_miner.hpp>
+#include <veriblock/mock_miner_2.hpp>
+#include <veriblock/pop_context.hpp>
+#include <consensus/merkle.h>
+
+#include <vbk/pop_service.hpp>
 
 using altintegration::ATV;
 using altintegration::BtcBlock;
-using altintegration::MockMiner;
+using altintegration::MockMiner2;
 using altintegration::PublicationData;
 using altintegration::VbkBlock;
 using altintegration::VTB;
@@ -40,7 +42,7 @@ struct TestLogger : public altintegration::Logger {
 
 struct E2eFixture : public TestChain100Setup {
     CScript cbKey = CScript() << ToByteVector(coinbaseKey.GetPubKey()) << OP_CHECKSIG;
-    MockMiner popminer;
+    MockMiner2 popminer;
     altintegration::ValidationState state;
     altintegration::PopContext* pop;
     std::vector<uint8_t> defaultPayoutInfo = {1, 2, 3, 4, 5};
@@ -52,8 +54,7 @@ struct E2eFixture : public TestChain100Setup {
 
         // create N blocks necessary to start POP fork resolution
         CScript scriptPubKey = CScript() << ToByteVector(coinbaseKey.GetPubKey()) << OP_CHECKSIG;
-        while (!Params().isPopActive(chainActive.Tip()->nHeight))
-        {
+        while (!Params().isPopActive(chainActive.Tip()->nHeight)) {
             CBlock b = CreateAndProcessBlock({}, scriptPubKey);
             m_coinbase_txns.push_back(b.vtx[0]);
         }
@@ -94,7 +95,7 @@ struct E2eFixture : public TestChain100Setup {
         return blocks[0];
     }
 
-    ATV endorseAltBlock(uint256 hash, const std::vector<VTB>& vtbs, const std::vector<uint8_t>& payoutInfo)
+    ATV endorseAltBlock(uint256 hash, const std::vector<uint8_t>& payoutInfo)
     {
         CBlockIndex* endorsed = nullptr;
         {
@@ -110,9 +111,9 @@ struct E2eFixture : public TestChain100Setup {
         return atv;
     }
 
-    ATV endorseAltBlock(uint256 hash, const std::vector<VTB>& vtbs)
+    ATV endorseAltBlock(uint256 hash)
     {
-        return endorseAltBlock(hash, vtbs, defaultPayoutInfo);
+        return endorseAltBlock(hash, defaultPayoutInfo);
     }
 
     CBlock endorseAltBlockAndMine(const std::vector<uint256>& hashes, size_t generateVtbs = 0)
@@ -125,7 +126,7 @@ struct E2eFixture : public TestChain100Setup {
         return endorseAltBlockAndMine(hashes, prevBlock, defaultPayoutInfo, generateVtbs);
     }
 
-    CBlock endorseAltBlockAndMine(const std::vector<uint256>& hashes, uint256 prevBlock, const std::vector<uint8_t>& payoutInfo, size_t generateVtbs = 0)
+    CBlock endorseAltBlockAndMine(const std::vector<uint256>& hashes, uint256 prevBlock, const std::vector<uint8_t>& payoutInfo, size_t generateVtbs = 0, bool expectAccepted = false)
     {
         std::vector<VTB> vtbs;
         vtbs.reserve(generateVtbs);
@@ -136,7 +137,7 @@ struct E2eFixture : public TestChain100Setup {
         std::vector<ATV> atvs;
         atvs.reserve(hashes.size());
         std::transform(hashes.begin(), hashes.end(), std::back_inserter(atvs), [&](const uint256& hash) -> ATV {
-            return endorseAltBlock(hash, {}, payoutInfo);
+            return endorseAltBlock(hash, payoutInfo);
         });
 
         auto& pop_mempool = *pop->mempool;
@@ -151,7 +152,10 @@ struct E2eFixture : public TestChain100Setup {
             // do not check the submit result - expect statefully invalid data for testing purposes
         }
 
-        return CreateAndProcessBlock({}, cbKey);
+        bool isValid = false;
+        const auto& block = CreateAndProcessBlock({}, prevBlock, cbKey, &isValid);
+        BOOST_CHECK(isValid);
+        return block;
     }
 
     CBlock endorseAltBlockAndMine(uint256 hash, uint256 prevBlock, const std::vector<uint8_t>& payoutInfo, size_t generateVtbs = 0)
@@ -197,18 +201,27 @@ struct E2eFixture : public TestChain100Setup {
 
     PublicationData createPublicationData(CBlockIndex* endorsed, const std::vector<uint8_t>& payoutInfo)
     {
-        PublicationData p;
+        assert(endorsed);
 
-        auto& config = *VeriBlock::GetPop().config;
-        p.identifier = config.alt->getIdentifier();
-        p.payoutInfo = payoutInfo;
+        auto hash = endorsed->GetBlockHash();
+        CBlock block;
+        bool read = ReadBlockFromDisk(block, endorsed, Params().GetConsensus());
+        assert(read && "expected to read endorsed block from disk");
 
-        // serialize block header
         CDataStream stream(SER_NETWORK, PROTOCOL_VERSION);
         stream << endorsed->GetBlockHeader();
-        p.header = std::vector<uint8_t>{stream.begin(), stream.end()};
+        std::vector<uint8_t> header{stream.begin(), stream.end()};
 
-        return p;
+        auto txRoot = BlockMerkleRoot(block, nullptr).asVector();
+        auto* libendorsed = VeriBlock::GetPop().altTree->getBlockIndex(hash.asVector());
+        assert(libendorsed && "expected to have endorsed header in library");
+        return altintegration::GeneratePublicationData(
+            header,
+            *libendorsed,
+            txRoot,
+            block.popData,
+            payoutInfo,
+            *VeriBlock::GetPop().config->alt);
     }
 
     PublicationData createPublicationData(CBlockIndex* endorsed)

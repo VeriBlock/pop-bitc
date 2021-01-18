@@ -27,7 +27,8 @@ BITCASH_TEST_SUITE = \
 
 # VeriBlock
 VBK_TESTS =\
-  vbk/test/unit/e2e_pop_tests.cpp
+  vbk/test/unit/e2e_poptx_tests.cpp \
+  vbk/test/unit/block_validation_tests.cpp
 
 # test_bitcash binary #
 BITCASH_TESTS =\

@@ -19,7 +19,7 @@
 #include <httprpc.h>
 #include <utilstrencodings.h>
 #include <walletinitinterface.h>
-#include <vbk/bootstraps.hpp>
+#include <vbk/params.hpp>
 
 #include <boost/thread.hpp>
 

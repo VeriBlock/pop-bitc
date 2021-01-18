@@ -46,8 +46,7 @@ bool setState(const uint256& hash, altintegration::ValidationState& state);
 //! mempool methods
 altintegration::PopData getPopData();
 void removePayloadsFromMempool(const altintegration::PopData& popData);
-void updatePopMempoolForReorg();
-void addDisconnectedPopData(const altintegration::PopData& popData);
+void addDisconnectedPopdata(const altintegration::PopData& popData);
 
 std::vector<BlockBytes> getLastKnownVBKBlocks(size_t blocks);
 std::vector<BlockBytes> getLastKnownBTCBlocks(size_t blocks);
