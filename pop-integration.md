@@ -1888,7 +1888,7 @@ _method TestingSetup::~TestingSetup_
          GetMainSignals().UnregisterBackgroundSignalScheduler();
 ```
 
-Add pop_service.cpp to the Makefile.
+### Add pop_service.cpp to the Makefile.
 
 [<font style="color: red"> src/Makefile.am </font>]
 ```diff
@@ -1918,7 +1918,7 @@ _class CChainParams_
  protected:
 ```
 
-Update validation.cpp to use refactored method for detecting Pop security height.
+### Update validation.cpp to use refactored method for detecting Pop security height.
 
 [<font style="color: red"> src/validation.cpp </font>]
 
@@ -1934,7 +1934,7 @@ _method ContextualCheckBlockHeader_
           strprintf("block contains PopData before PopSecurity has been enabled"));
 ```
 
-Change height of the Pop security forkpoint in the regtest. It allows to properly run the Pop tests.
+### Change height of the Pop security forkpoint in the regtest. It allows to properly run the Pop tests.
 
 [<font style="color: red"> src/chainparams.cpp </font>]
 
@@ -1949,7 +1949,8 @@ _method CRegTestParams::CRegTestParams_
 ## Add Pop mempool
 
 Now we want to add the Pop mempool support to the BitCash. We should implement methods for the Pop payloads submitting to the mempool, fetching payloads during the block mining and removing payloads after successfully submitting a block to the blockchain.
-First we should implement methods in the pop_service.hpp pop_service.cpp source files.
+
+### First we should implement methods in the pop_service.hpp pop_service.cpp source files.
 
 [<font style="color: red"> src/vbk/pop_service.hpp </font>]
 ```diff
@@ -1987,7 +1988,7 @@ First we should implement methods in the pop_service.hpp pop_service.cpp source 
  } // namespace VeriBlock
 ```
 
-Add popData during block mining. Update CreateNewBlock() and CreateNewBlockWithScriptPubKey() in the miner.cpp.
+### Add popData during block mining. Update CreateNewBlock() and CreateNewBlockWithScriptPubKey() in the miner.cpp.
 
 [<font style="color: red"> src/miner.cpp </font>]
 ```diff
@@ -2029,7 +2030,7 @@ _method BlockAssembler::CreateNewBlock_
          pblock->nVersion |= VeriBlock::POP_BLOCK_VERSION_BIT;
 ```
 
-We should remove popData after successfully submitting to the blockchain. Modify ConnectTip() and DisconnectTip() methods in the validation.cpp.
+### We should remove popData after successfully submitting to the blockchain. Modify ConnectTip() and DisconnectTip() methods in the validation.cpp.
 
 [<font style="color: red"> src/validation.cpp </font>]
 
@@ -2207,7 +2208,7 @@ setState() - changes the state of the VeriBlock AltTree as if the provided altch
 } // namespace VeriBlock
 ```
 
-Update block processing in the ConnectBlock(), UpdateTip(), ApplyBlockUndo(), AcceptBlockHeader(), AcceptBlock(), TestBlockValidity().
+### Update block processing in the ConnectBlock(), DisconnectBlock(), UpdateTip(), LoadGenesisBlock(), AcceptBlockHeader(), AcceptBlock(), TestBlockValidity().
 
 [<font style="color: red"> src/validation.cpp</font>]
 
@@ -2355,6 +2356,7 @@ _method CChainState::LoadGenesisBlock_
          if (!ReceivedBlockTransactions(block, state, pindex, blockPos, chainparams.GetConsensus()))
              return error("%s: genesis block not accepted (%s)", __func__, FormatStateMessage(state));
 ```
+
 [<font style="color: red"> src/init.cpp </font>]
 
 _method AppInitMain_
@@ -2382,7 +2384,8 @@ _method AppInitMain_
 ## Add unit tests
 
 Now we will test the functionality we have added before.
-First let's add some util files: consts.hpp, e2e_fixture.hpp.
+
+### First let's add some util files: consts.hpp, e2e_fixture.hpp.
 
 [<font style="color: red"> src/vbk/test/util/consts.hpp </font>]
 ```
@@ -2751,7 +2754,7 @@ struct E2eFixture : public TestChain100Setup {
 #endif //BITCASH_SRC_VBK_TEST_UTIL_E2E_FIXTURE_HPP
 ```
 
-Update Pop logging support.
+### Update Pop logging support.
 
 [<font style="color: red"> src/vbk/log.hpp </font>]
 ```
@@ -2824,7 +2827,7 @@ _method InitLogging_
      fLogIPs = gArgs.GetBoolArg("-logips", DEFAULT_LOGIPS);
 ```
 
-Modify test_bitcash.cpp to perform the basic test setup.
+### Modify test_bitcash.cpp to perform the basic test setup.
 
 [<font style="color: red"> src/test/test_bitcash.cpp </font>]
 
@@ -2839,7 +2842,7 @@ _method TestChain100Setup::TestChain100Setup_
  }
 ```
 
-Allow fast mining for Regtest.
+### Allow fast mining for Regtest.
 
 [<font style="color: red"> src/pow.cpp </font>]
 
@@ -2897,7 +2900,7 @@ _method GetNextWorkRequired_
      bool foundx25x = false;
 ```
 
-Now we can add a test case which tests the VeriBlock Pop behaviour: e2e_poptx_tests.cpp.
+### Now we can add a test case which tests the VeriBlock Pop behaviour: e2e_poptx_tests.cpp.
 
 [<font style="color: red"> src/vbk/test/unit/e2e_poptx_tests.cpp </font>]
 ```
@@ -2955,7 +2958,7 @@ BOOST_FIXTURE_TEST_CASE(ValidBlockIsAccepted, E2eFixture)
 BOOST_AUTO_TEST_SUITE_END()
 ```
 
-Update Makefile to enable new unit test.
+### Update Makefile to enable new unit test.
 
 [<font style="color: red"> src/Makefile.test.include </font>]
 ```diff
@@ -2977,9 +2980,9 @@ Update Makefile to enable new unit test.
 
 ## Update block merkle root, block size calculating.
 
-For the VeriBlock Pop security we should add context info conrainer with Pop related information such as block height, keystones, popData merkle root. Root hash of the context info container should be added to the original block merkle root calculation.
+For the VeriBlock Pop security we should add Pop related information to the merkle root. Root hash of the Pop data should be added to the original block merkle root calculation.
 
-VeriBlock merkle root related functions are implemented in the merkle.hpp and merkle.cpp
+### VeriBlock merkle root related functions are implemented in the merkle.hpp and merkle.cpp
 
 [<font style="color: red"> src/vbk/merkle.hpp </font>]
 ```
@@ -3072,7 +3075,8 @@ bool isKeystone(const CBlockIndex& block)
 } // namespace VeriBlock
 ```
 
-Next step is to update the mining process and validation process with new merkle root calculation.
+### Next step is to update the mining process and validation process with new merkle root calculation.
+
 [<font style="color: red"> src/miner.cpp </font>]
 ```diff
  #include "RSJparser.tcc"
@@ -3122,7 +3126,7 @@ _method stratum_
 +bool ContextualCheckBlock(const CBlock& block, CValidationState& state, const Consensus::Params& consensusParams, const CBlockIndex* pindexPrev, bool fCheckMerkleRoot = true);
 ```
 
-As VeriBlock Merkle root algorithm depends on the blockchain, we should move Merkle root validation from the CheckBlock() to the ContextualCheckBlock().
+### As VeriBlock Merkle root algorithm depends on the blockchain, we should move Merkle root validation from the CheckBlock() to the ContextualCheckBlock().
 
 [<font style="color: red"> src/validation.cpp </font>]
 ```diff
@@ -3218,7 +3222,7 @@ _method TestBlockValidity_
 
 ```
 
-The next step is to update current tests and add new VeriBlock tests.
+### The next step is to update current tests and add new VeriBlock tests.
 
 Add helper genesis_common.cpp file to allow the generating of the Genesis block.
 
@@ -3333,7 +3337,7 @@ CBlock CreateGenesisBlock(
 } // namespace VeriBlock
 ```
 
-Add new tests: block_validation_tests.cpp, pop_util_tests.cpp, vbk_merkle_tests.cpp.
+### Add new tests: block_validation_tests.cpp, pop_util_tests.cpp, vbk_merkle_tests.cpp.
 
 [<font style="color: red"> src/vbk/test/unit/block_validation_tests.cpp </font>]
 ```
@@ -3490,7 +3494,7 @@ BOOST_FIXTURE_TEST_CASE(TestChain100Setup_has_valid_merkle_roots, MerkleFixture)
 BOOST_AUTO_TEST_SUITE_END()
 ```
 
-Update makefile to run tests.
+### Update makefile to run tests.
 
 [<font style="color: red"> src/Makefile.test.include </font>]
 ```diff
