@@ -31,6 +31,7 @@
 #include <chainparams.h>
 #include <validation.h>
 #include "rpc/blockchain.h"
+#include <vbk/merkle.hpp>
 
 #include "RSJparser.tcc"
 using namespace std;
@@ -454,7 +455,11 @@ void stratum()
                         txCoinbase.vin[0].scriptSig = CScript() << blockheight << ParseHex("FFBBAAEE003344BB"+extranonce1+extranonce2) << OP_0; 
                         assert(txCoinbase.vin[0].scriptSig.size() <= 100);
                         pblock->vtx[0] = MakeTransactionRef(std::move(txCoinbase));
-                        pblock->hashMerkleRoot = BlockMerkleRoot(*pblock);
+                        // VeriBlock
+                        CBlockIndex *tip = chainActive.Tip();
+                        assert(tip != nullptr);
+                        pblock->hashMerkleRoot = VeriBlock::TopLevelMerkleRoot(tip, *pblock);
+
 			if (ProcessBlockFound(pblock, Params())) {
                             LogPrintf("Stratum Server: Found block! \n");   
   			    std::stringstream ss;

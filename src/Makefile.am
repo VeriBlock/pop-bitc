@@ -72,7 +72,6 @@ endif
 
 ### VeriBlock section start
 VBK_H = \
-  vbk/entity/context_info_container.hpp \
   vbk/bootstraps.hpp \
   vbk/pop_common.hpp \
   vbk/pop_service.hpp \
@@ -423,6 +422,8 @@ libbitcash_common_a_SOURCES = \
   uint256.h \
   utilstrencodings.cpp \
   utilstrencodings.h \
+  vbk/genesis_common.hpp \
+  vbk/genesis_common.cpp \
   vbk/merkle.hpp \
   vbk/merkle.cpp \
   version.h \

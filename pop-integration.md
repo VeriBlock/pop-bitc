@@ -359,7 +359,7 @@ _method ProcessMessage_
          }
 ```
 
-Next step is to update validation rules, add check that if block contains VeriBlock PopData, then block.nVersion must contain POP_BLOCK_VERSION_BIT. Otherwise block.nVersion should not contain POP_BLOCK_VERSION_BIT. 
+Next step is to update validation rules, add check that if block contains VeriBlock PopData, then block.nVersion must contain POP_BLOCK_VERSION_BIT. Otherwise block.nVersion should not contain POP_BLOCK_VERSION_BIT.
 
 ### Update CheckBlock function in the validation.cpp for this check.
 [<font style="color: red"> src/validation.cpp </font>]
@@ -381,7 +381,6 @@ _method CheckBlock_
          return false;
      }
 
-+    // VeriBlock: merkle root verification currently depends on a context, so it has been moved to ContextualCheckBlock
 +    if(block.nVersion & VeriBlock::POP_BLOCK_VERSION_BIT && block.popData.empty()) {
 +        return state.DoS(100, false, REJECT_INVALID, "bad-block-pop-version", false, "POP bit is set, but pop data is empty");
 +    }
@@ -1900,26 +1899,6 @@ Add pop_service.cpp to the Makefile.
    addrdb.cpp \
    addrman.cpp \
 ```
-```diff
-libbitcash_server_a_SOURCES = \
-   policy/policy.cpp \
-   policy/rbf.cpp \
-   pow.cpp \
-+  vbk/params.hpp \
-+  vbk/params.cpp \
-   rest.cpp \
-   stratum.cpp \
-
-```
-```diff
- bitcash_tx_LDADD = \
-   $(LIBUNIVALUE) \
-   $(VERIBLOCK_POP_CPP_LIBS) \
-+  $(LIBBITCASH_SERVER) \
-   $(LIBBITCASH_COMMON) \
-   $(LIBBITCASH_UTIL) \
-   $(LIBBITCASH_CRYPTO) \
-```
 
 ### Before moving further we will make a short code refactoring.
 
@@ -2918,7 +2897,7 @@ _method GetNextWorkRequired_
      bool foundx25x = false;
 ```
 
-Now we can add a test case which tests the VeriBlock Pop behaviour: e2e_pop_tests.cpp.
+Now we can add a test case which tests the VeriBlock Pop behaviour: e2e_poptx_tests.cpp.
 
 [<font style="color: red"> src/vbk/test/unit/e2e_poptx_tests.cpp </font>]
 ```
@@ -2934,10 +2913,8 @@ Now we can add a test case which tests the VeriBlock Pop behaviour: e2e_pop_test
 #include <vbk/test/util/e2e_fixture.hpp>
 #include <vbk/util.hpp>
 #include <veriblock/alt-util.hpp>
-#include <veriblock/mock_miner_2.hpp>
 
 using altintegration::BtcBlock;
-using altintegration::MockMiner2;
 using altintegration::PublicationData;
 using altintegration::VbkBlock;
 using altintegration::VTB;
@@ -3002,4 +2979,528 @@ Update Makefile to enable new unit test.
 
 For the VeriBlock Pop security we should add context info conrainer with Pop related information such as block height, keystones, popData merkle root. Root hash of the context info container should be added to the original block merkle root calculation.
 
-VeriBlock merkle root related functions are implemented in the merkle.hpp, merkle.cpp, context_info_container.hpp
+VeriBlock merkle root related functions are implemented in the merkle.hpp and merkle.cpp
+
+[<font style="color: red"> src/vbk/merkle.hpp </font>]
+```
+// Copyright (c) 2019-2020 Xenios SEZC
+// https://www.veriblock.org
+// Distributed under the MIT software license, see the accompanying
+// file COPYING or http://www.opensource.org/licenses/mit-license.php.
+
+#ifndef BITCASH_SRC_VBK_MERKLE_HPP
+#define BITCASH_SRC_VBK_MERKLE_HPP
+
+#include <chain.h>
+#include <chainparams.h>
+#include <consensus/validation.h>
+#include <primitives/transaction.h>
+
+namespace VeriBlock {
+
+uint256 TopLevelMerkleRoot(const CBlockIndex* prevIndex, const CBlock& block, bool* mutated = nullptr);
+
+bool VerifyTopLevelMerkleRoot(const CBlock& block, const CBlockIndex* pprevIndex, CValidationState& state);
+
+} // namespace VeriBlock
+
+#endif //BITCASH_SRC_VBK_MERKLE_HPP
+```
+[<font style="color: red"> src/vbk/merkle.cpp </font>]
+```
+// Copyright (c) 2019-2020 Xenios SEZC
+// https://www.veriblock.org
+// Distributed under the MIT software license, see the accompanying
+// file COPYING or http://www.opensource.org/licenses/mit-license.php.
+
+#include "merkle.hpp"
+#include <consensus/merkle.h>
+#include <hash.h>
+#include <vbk/pop_common.hpp>
+
+namespace VeriBlock {
+
+uint256 TopLevelMerkleRoot(const CBlockIndex* prevIndex, const CBlock& block, bool* mutated)
+{
+    using altintegration::CalculateTopLevelMerkleRoot;
+    auto& altParams = *VeriBlock::GetPop().config->alt;
+
+    // first, build regular merkle root from transactions
+    auto txRoot = BlockMerkleRoot(block, mutated);
+
+    // if POP is not enabled for 'block' , use original txRoot as merkle root
+    const auto height = prevIndex == nullptr ? 0 : prevIndex->nHeight + 1;
+    if (!Params().isPopActive(height)) {
+        return txRoot;
+    }
+
+    // POP is enabled.
+
+    // then, find BlockIndex in AltBlockTree.
+    // if returns nullptr, 'prevIndex' is behind bootstrap block.
+    auto* prev = VeriBlock::GetAltBlockIndex(prevIndex);
+    auto tlmr = CalculateTopLevelMerkleRoot(txRoot.asVector(), block.popData, prev, altParams);
+    return uint256(tlmr.asVector());
+}
+
+bool VerifyTopLevelMerkleRoot(const CBlock& block, const CBlockIndex* pprevIndex, CValidationState& state)
+{
+    bool mutated = false;
+    uint256 hashMerkleRoot2 = VeriBlock::TopLevelMerkleRoot(pprevIndex, block, &mutated);
+
+    if (block.hashMerkleRoot != hashMerkleRoot2) {
+        return state.Invalid(false, REJECT_INVALID, "bad-txnmrklroot",
+            strprintf("hashMerkleRoot mismatch. expected %s, got %s", hashMerkleRoot2.GetHex(), block.hashMerkleRoot.GetHex()));
+    }
+
+    // Check for merkle tree malleability (CVE-2012-2459): repeating sequences
+    // of transactions in a block without affecting the merkle root of a block,
+    // while still invalidating it.
+    if (mutated) {
+        return state.Invalid(false, REJECT_INVALID, "bad-txns-duplicate", "duplicate transaction");
+    }
+
+    return true;
+}
+
+bool isKeystone(const CBlockIndex& block)
+{
+    auto keystoneInterval = VeriBlock::GetPop().config->alt->getKeystoneInterval();
+    return (block.nHeight % keystoneInterval) == 0;
+}
+
+} // namespace VeriBlock
+```
+
+Next step is to update the mining process and validation process with new merkle root calculation.
+[<font style="color: red"> src/miner.cpp </font>]
+```diff
+ #include "RSJparser.tcc"
+ #include <curl/curl.h>
+
++#include <vbk/merkle.hpp>
+#include <vbk/pop_service.hpp>
+```
+_method IncrementExtraNonce_
+```diff
+     assert(txCoinbase.vin[0].scriptSig.size() <= 100);
+
+     pblock->vtx[0] = MakeTransactionRef(std::move(txCoinbase));
+-    pblock->hashMerkleRoot = BlockMerkleRoot(*pblock);
++    // VeriBlock
++    pblock->hashMerkleRoot = VeriBlock::TopLevelMerkleRoot(pindexPrev, *pblock);
+ }
+```
+[<font style="color: red"> src/stratum.cpp </font>]
+```diff
+ #include <chainparams.h>
+ #include <validation.h>
+ #include "rpc/blockchain.h"
++#include <vbk/merkle.hpp>
+
+ #include "RSJparser.tcc"
+```
+_method stratum_
+```diff
+                         assert(txCoinbase.vin[0].scriptSig.size() <= 100);
+                         pblock->vtx[0] = MakeTransactionRef(std::move(txCoinbase));
+-                        pblock->hashMerkleRoot = BlockMerkleRoot(*pblock);
++                        // VeriBlock
++                        CBlockIndex *tip = chainActive.Tip();
++                        assert(tip != nullptr);
++                        pblock->hashMerkleRoot = VeriBlock::TopLevelMerkleRoot(tip, *pblock);
++
+                        if (ProcessBlockFound(pblock, Params())) {
+```
+[<font style="color: red"> src/validation.h </font>]
+```diff
+ /** Context-independent validity checks */
+-bool CheckBlock(const CBlock& block, CValidationState& state, const Consensus::Params& consensusParams, bool fCheckPOW = true, bool fCheckMerkleRoot = true, bool checkdblnicknames = false);
++bool CheckBlock(const CBlock& block, CValidationState& state, const Consensus::Params& consensusParams, bool fCheckPOW = true, bool checkdblnicknames = false);
++
++/** Context-dependent validity checks */
++bool ContextualCheckBlock(const CBlock& block, CValidationState& state, const Consensus::Params& consensusParams, const CBlockIndex* pindexPrev, bool fCheckMerkleRoot = true);
+```
+
+As VeriBlock Merkle root algorithm depends on the blockchain, we should move Merkle root validation from the CheckBlock() to the ContextualCheckBlock().
+
+[<font style="color: red"> src/validation.cpp </font>]
+```diff
+ #include <boost/algorithm/string/join.hpp>
+ #include <boost/thread.hpp>
+
++#include <vbk/merkle.hpp>
+ #include <vbk/pop_service.hpp>
+
+ #if defined(NDEBUG)
+```
+_method CChainState::ConnectBlock_
+```diff
+     // is enforced in ContextualCheckBlockHeader(); we wouldn't want to
+     // re-enforce that rule here (at least until we make it impossible for
+     // GetAdjustedTime() to go backward).
+-    if (!CheckBlock(block, state, chainparams.GetConsensus(), !fJustCheck, !fJustCheck)) {
++
++    //VeriBlock : added ContextualCheckBlock() here becuse merkleRoot calculation  moved from the CheckBlock() to the ContextualCheckBlock()
++    if (!CheckBlock(block, state, chainparams.GetConsensus(), !fJustCheck)  && !ContextualCheckBlock(block, state, chainparams.GetConsensus(), pindex->pprev, true)) {
+         LogPrintf("BlockHash for corrupt block: %s\n", block.GetHash().ToString());
+         CDataStream ssBlock(SER_NETWORK, PROTOCOL_VERSION);
+```
+```diff
+-bool CheckBlock(const CBlock& block, CValidationState& state, const Consensus::Params& consensusParams, bool fCheckPOW, bool fCheckMerkleRoot, bool checkdblnicknames)
++bool CheckBlock(const CBlock& block, CValidationState& state, const Consensus::Params& consensusParams, bool fCheckPOW, bool checkdblnicknames)
+ {
+     // These are checks that are independent of context.
+```
+_method CheckBlock_
+```diff
+         return false;
+     }
+
+-    // Check the merkle root.
+-    if (fCheckMerkleRoot) {
+-        bool mutated;
+-        uint256 hashMerkleRoot2 = BlockMerkleRoot(block, &mutated);
+-        if (block.hashMerkleRoot != hashMerkleRoot2)
+-            return state.DoS(100, false, REJECT_INVALID, "bad-txnmrklroot", true, "hashMerkleRoot mismatch");
+-
+-        // Check for merkle tree malleability (CVE-2012-2459): repeating sequences
+-        // of transactions in a block without affecting the merkle root of a block,
+-        // while still invalidating it.
+-        if (mutated)
+-            return state.DoS(100, false, REJECT_INVALID, "bad-txns-duplicate", true, "duplicate transaction");
++    // VeriBlock: merkle root verification currently depends on a context, so it has been moved to ContextualCheckBlock
+```
+```diff
+     if (nSigOps * WITNESS_SCALE_FACTOR > MAX_BLOCK_SIGOPS_COST)
+         return state.DoS(100, false, REJECT_INVALID, "bad-blk-sigops", false, "out-of-bounds SigOpCount");
+
+-    if (fCheckPOW && fCheckMerkleRoot)
++    if (fCheckPOW)
+         block.fChecked = true;
+
+     return true;
+```
+```diff
+  *  in ConnectBlock().
+  *  Note that -reindex-chainstate skips the validation that happens here!
+  */
+-static bool ContextualCheckBlock(const CBlock& block, CValidationState& state, const Consensus::Params& consensusParams, const CBlockIndex* pindexPrev)
++bool ContextualCheckBlock(const CBlock& block, CValidationState& state, const Consensus::Params& consensusParams, const CBlockIndex* pindexPrev, bool fCheckMerkleRoot)
+ {
+```
+_method ContextualCheckBlock_
+```diff
+         nLockTimeFlags |= LOCKTIME_MEDIAN_TIME_PAST;
+     }
+
++    // VeriBlock: merkle tree verification is moved from CheckBlock here, because it requires correct CBlockIndex
++    if (fCheckMerkleRoot && !VeriBlock::VerifyTopLevelMerkleRoot(block, pindexPrev, state)) {
++        // state is already set with error message
++        return false;
++    }
++
+     int64_t nLockTimeCutoff = (nLockTimeFlags & LOCKTIME_MEDIAN_TIME_PAST)
+                               ? pindexPrev->GetMedianTimePast()
+                               : block.GetBlockTime();
+```
+_method TestBlockValidity_
+```diff
+     // NOTE: CheckBlockHeader is called by CheckBlock
+     if (!ContextualCheckBlockHeader(block, state, chainparams, pindexPrev, GetAdjustedTime()))
+         return error("%s: Consensus::ContextualCheckBlockHeader: %s", __func__, FormatStateMessage(state));
+-    if (!CheckBlock(block, state, chainparams.GetConsensus(), fCheckPOW, fCheckMerkleRoot))
++    if (!CheckBlock(block, state, chainparams.GetConsensus(), fCheckPOW))
+         return error("%s: Consensus::CheckBlock: %s", __func__, FormatStateMessage(state));
+-    if (!ContextualCheckBlock(block, state, chainparams.GetConsensus(), pindexPrev))
++    if (!ContextualCheckBlock(block, state, chainparams.GetConsensus(), pindexPrev, fCheckMerkleRoot))
+         return error("%s: Consensus::ContextualCheckBlock: %s", __func__, FormatStateMessage(state));
+
+```
+
+The next step is to update current tests and add new VeriBlock tests.
+
+Add helper genesis_common.cpp file to allow the generating of the Genesis block.
+
+[<font style="color: red"> src/vbk/genesis_common.hpp </font>]
+```
+// Copyright (c) 2019-2020 Xenios SEZC
+// https://www.veriblock.org
+// Distributed under the MIT software license, see the accompanying
+// file COPYING or http://www.opensource.org/licenses/mit-license.php.
+
+#ifndef BITCASH_SRC_VBK_GENESIS_COMMON_HPP
+#define BITCASH_SRC_VBK_GENESIS_COMMON_HPP
+
+#include <primitives/block.h>
+#include <script/script.h>
+
+namespace VeriBlock {
+
+CScript ScriptWithPrefix(uint32_t nBits);
+
+CBlock CreateGenesisBlock(
+    std::string pszTimestamp,
+    const CScript& genesisOutputScript,
+    uint32_t nTime,
+    uint32_t nNonce,
+    uint32_t nBits,
+    int32_t nVersion,
+    const CAmount& genesisReward);
+
+CBlock CreateGenesisBlock(
+    uint32_t nTime,
+    uint32_t nNonce,
+    uint32_t nBits,
+    int32_t nVersion,
+    const CAmount& genesisReward,
+    const std::string& initialPubkeyHex,
+    const std::string& pszTimestamp);
+
+} // namespace VeriBlock
+
+#endif //BITCASH_SRC_VBK_GENESIS_COMMON_HPP
+```
+[<font style="color: red"> src/vbk/genesis_common.cpp </font>]
+```
+// Copyright (c) 2019-2020 Xenios SEZC
+// https://www.veriblock.org
+// Distributed under the MIT software license, see the accompanying
+// file COPYING or http://www.opensource.org/licenses/mit-license.php.
+
+#include "genesis_common.hpp"
+#include <consensus/merkle.h>
+#include <vbk/merkle.hpp>
+
+namespace VeriBlock {
+
+CScript ScriptWithPrefix(uint32_t nBits)
+{
+    CScript script;
+    if (nBits <= 0xff)
+        script << nBits << CScriptNum(1);
+    else if (nBits <= 0xffff)
+        script << nBits << CScriptNum(2);
+    else if (nBits <= 0xffffff)
+        script << nBits << CScriptNum(3);
+    else
+        script << nBits << CScriptNum(4);
+
+    return script;
+}
+
+CBlock CreateGenesisBlock(
+    std::string pszTimestamp,
+    const CScript& genesisOutputScript,
+    uint32_t nTime,
+    uint32_t nNonce,
+    uint32_t nBits,
+    int32_t nVersion,
+    const CAmount& genesisReward)
+{
+    CMutableTransaction txNew;
+    txNew.nVersion = 1;
+    txNew.vin.resize(1);
+    txNew.vout.resize(1);
+    txNew.vin[0].scriptSig = VeriBlock::ScriptWithPrefix(nBits) << std::vector<uint8_t>{pszTimestamp.begin(), pszTimestamp.end()};
+    txNew.vout[0].nValue = genesisReward;
+    txNew.vout[0].scriptPubKey = genesisOutputScript;
+
+    CBlock genesis;
+    genesis.nTime = nTime;
+    genesis.nBits = nBits;
+    genesis.nNonce = nNonce;
+    genesis.nVersion = nVersion;
+    genesis.vtx.push_back(MakeTransactionRef(std::move(txNew)));
+    genesis.hashPrevBlock.SetNull();
+    genesis.hashMerkleRoot = BlockMerkleRoot(genesis);
+    return genesis;
+}
+
+CBlock CreateGenesisBlock(
+    uint32_t nTime,
+    uint32_t nNonce,
+    uint32_t nBits,
+    int32_t nVersion,
+    const CAmount& genesisReward,
+    const std::string& initialPubkeyHex,
+    const std::string& pszTimestamp)
+{
+    const CScript genesisOutputScript = CScript() << altintegration::ParseHex(initialPubkeyHex) << OP_CHECKSIG;
+    return VeriBlock::CreateGenesisBlock(pszTimestamp, genesisOutputScript, nTime, nNonce, nBits, nVersion, genesisReward);
+}
+
+} // namespace VeriBlock
+```
+
+Add new tests: block_validation_tests.cpp, pop_util_tests.cpp, vbk_merkle_tests.cpp.
+
+[<font style="color: red"> src/vbk/test/unit/block_validation_tests.cpp </font>]
+```
+// Copyright (c) 2019-2020 Xenios SEZC
+// https://www.veriblock.org
+// Distributed under the MIT software license, see the accompanying
+// file COPYING or http://www.opensource.org/licenses/mit-license.php.
+
+#include <boost/test/unit_test.hpp>
+#include <chainparams.h>
+#include <consensus/validation.h>
+#include <test/test_bitcash.h>
+#include <validation.h>
+#include <vbk/pop_service.hpp>
+#include <vbk/test/util/consts.hpp>
+#include <vbk/test/util/e2e_fixture.hpp>
+
+#include <string>
+
+inline std::vector<uint8_t> operator""_v(const char* s, size_t size)
+{
+    return std::vector<uint8_t>{s, s + size};
+}
+
+BOOST_AUTO_TEST_SUITE(block_validation_tests)
+
+static altintegration::PopData generateRandPopData()
+{
+    // add PopData
+    altintegration::ATV atv = altintegration::AssertDeserializeFromHex<altintegration::ATV>(VeriBlockTest::defaultAtvEncoded);
+    altintegration::VTB vtb = altintegration::AssertDeserializeFromHex<altintegration::VTB>(VeriBlockTest::defaultVtbEncoded);
+
+    altintegration::PopData popData;
+    popData.atvs = {atv};
+    popData.vtbs = {vtb, vtb, vtb};
+
+    return popData;
+}
+
+BOOST_AUTO_TEST_CASE(block_serialization_test)
+{
+    // Create random block
+    CBlock block;
+    block.hashMerkleRoot.SetNull();
+    block.hashPrevBlock.SetNull();
+    block.nBits = 10000;
+    block.nNonce = 10000;
+    block.nTime = 10000;
+    block.nVersion = 1 | VeriBlock::POP_BLOCK_VERSION_BIT;
+
+    altintegration::PopData popData = generateRandPopData();
+
+    block.popData = popData;
+
+    CDataStream stream(SER_NETWORK, PROTOCOL_VERSION);
+    BOOST_CHECK(stream.size() == 0);
+    stream << block;
+    BOOST_CHECK(stream.size() != 0);
+
+    CBlock decoded_block;
+    stream >> decoded_block;
+
+    BOOST_CHECK(decoded_block.GetHash() == block.GetHash());
+    BOOST_CHECK(decoded_block.popData == block.popData);
+}
+
+BOOST_AUTO_TEST_CASE(block_network_passing_test)
+{
+    // Create random block
+    CBlock block;
+    block.hashMerkleRoot.SetNull();
+    block.hashPrevBlock.SetNull();
+    block.nBits = 10000;
+    block.nNonce = 10000;
+    block.nTime = 10000;
+    block.nVersion = 1 | VeriBlock::POP_BLOCK_VERSION_BIT;
+
+    altintegration::PopData popData = generateRandPopData();
+
+    block.popData = popData;
+
+    CDataStream stream(SER_NETWORK, PROTOCOL_VERSION);
+}
+
+BOOST_FIXTURE_TEST_CASE(BlockPoPVersion_test, E2eFixture)
+{
+    for (size_t i = 0; i < 400; ++i) {
+        CreateAndProcessBlock({}, cbKey);
+    }
+
+    auto block = CreateAndProcessBlock({}, cbKey);
+}
+
+BOOST_AUTO_TEST_SUITE_END()
+```
+[<font style="color: red"> src/vbk/test/unit/vbk_merkle_tests.cpp </font>]
+```
+// Copyright (c) 2019-2020 Xenios SEZC
+// https://www.veriblock.org
+// Distributed under the MIT software license, see the accompanying
+// file LICENSE or http://www.opensource.org/licenses/mit-license.php.
+#include <boost/test/unit_test.hpp>
+
+#include <algorithm>
+
+#include <chain.h>
+#include <test/test_bitcash.h>
+#include <validation.h>
+#include <wallet/wallet.h>
+
+#include "vbk/genesis_common.hpp"
+#include "vbk/merkle.hpp"
+
+BOOST_AUTO_TEST_SUITE(vbk_merkle_tests)
+
+struct MerkleFixture {
+    // this inits veriblock services
+    TestChain100Setup blockchain;
+    CScript cbKey = CScript() << ToByteVector(blockchain.coinbaseKey.GetPubKey()) << OP_CHECKSIG;
+};
+
+BOOST_FIXTURE_TEST_CASE(genesis_block_hash_is_valid, MerkleFixture)
+{
+    CBlock block = VeriBlock::CreateGenesisBlock(
+        1337, 36282504, 0x1d0fffff, 1, 50 * COIN,
+        "047c62bbf7f5aa4dd5c16bad99ac621b857fac4e93de86e45f5ada73404eeb44dedcf377b03c14a24e9d51605d9dd2d8ddaef58760d9c4bb82d9c8f06d96e79488",
+        "VeriBlock");
+    CValidationState state;
+
+    bool result = VeriBlock::VerifyTopLevelMerkleRoot(block, nullptr, state);
+    BOOST_CHECK(result);
+    BOOST_CHECK(state.IsValid());
+}
+
+BOOST_FIXTURE_TEST_CASE(TestChain100Setup_has_valid_merkle_roots, MerkleFixture)
+{
+    SelectParams("regtest");
+    CValidationState state;
+    CBlock block;
+
+    int MAX = 1000;
+    while(chainActive.Height() < MAX) {
+        blockchain.CreateAndProcessBlock({}, cbKey);
+    }
+
+    for (int i = 0; i <= chainActive.Height(); i++) {
+        CBlockIndex* index = chainActive[i];
+        BOOST_REQUIRE_MESSAGE(index != nullptr, "can not find block at given height");
+        BOOST_REQUIRE_MESSAGE(ReadBlockFromDisk(block, index, Params().GetConsensus()), "can not read block");
+        BOOST_CHECK_MESSAGE(VeriBlock::VerifyTopLevelMerkleRoot(block, index->pprev, state), strprintf("merkle root of block %d is invalid", i));
+    }
+}
+
+BOOST_AUTO_TEST_SUITE_END()
+```
+
+Update makefile to run tests.
+
+[<font style="color: red"> src/Makefile.test.include </font>]
+```diff
+   test/test_bitcash.cpp
+
++# VeriBlock
+VBK_TESTS =\
+   vbk/test/unit/e2e_poptx_tests.cpp \
++  vbk/test/unit/block_validation_tests.cpp \
++  vbk/test/unit/vbk_merkle_tests.cpp
++
+ # test_bitcash binary #
+```
