@@ -1313,15 +1313,18 @@ bool ReadBlockFromDisk(CBlock& block, const CBlockIndex* pindex, const Consensus
     return true;
 }
 
-CAmount GetBlockSubsidy(int nHeight, const Consensus::Params& consensusParams)
+CAmount GetBlockSubsidy(int nHeight, const CChainParams& params)
 {
+    const auto& consensusParams = params.GetConsensus();
     if (nHeight==1)
     {
         return 9700019350 * MILLICOIN; //9.7 millin coins premine
     } else
     if  (nHeight <= consensusParams.nSubsidyFirstInterval)
     {
-        return 19350 * MILLICOIN;
+        CAmount nSubsidy = 19350 * MILLICOIN;
+        nSubsidy = VeriBlock::getCoinbaseSubsidy(nSubsidy, nHeight, params);
+        return nSubsidy;
     } else
     {
 
@@ -1333,6 +1336,7 @@ CAmount GetBlockSubsidy(int nHeight, const Consensus::Params& consensusParams)
         CAmount nSubsidy = 7200 * MILLICOIN;
         // Subsidy is cut in half every 4.20.000 blocks which will occur approximately every 8 years.
         {
+            nSubsidy = VeriBlock::getCoinbaseSubsidy(nSubsidy, nHeight, params);
             nSubsidy >>= halvings;
         }
         return nSubsidy;
@@ -2347,13 +2351,10 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
     int64_t nTime3 = GetTimeMicros(); nTimeConnect += nTime3 - nTime2;
     LogPrint(BCLog::BENCH, "      - Connect %u transactions: %.2fms (%.3fms/tx, %.3fms/txin) [%.2fs (%.2fms/blk)]\n", (unsigned)block.vtx.size(), MILLI * (nTime3 - nTime2), MILLI * (nTime3 - nTime2) / block.vtx.size(), nInputs <= 1 ? 0 : MILLI * (nTime3 - nTime2) / (nInputs-1), nTimeConnect * MICRO, nTimeConnect * MILLI / nBlocksTotal);
 
-    CAmount blockReward = nFees + GetBlockSubsidy(pindex->nHeight, chainparams.GetConsensus()) + GetBlockSubsidyDevs(pindex->nHeight, chainparams.GetConsensus());
-
-    if (block.vtx[0]->GetValueOutInCurrency(0, block.GetPriceinCurrency(0), block.GetPriceinCurrency(2)) > blockReward)//Get value in currency 0
-        return state.DoS(100,
-                         error("ConnectBlock(): coinbase pays too much (actual=%d vs limit=%d)",
-                               block.vtx[0]->GetValueOutInCurrency(0, block.GetPriceinCurrency(0), block.GetPriceinCurrency(2)), blockReward),
-                               REJECT_INVALID, "bad-cb-amount");
+    assert(pindex->pprev && "previous block ptr is nullptr");
+    if (!VeriBlock::checkCoinbaseTxWithPopRewards(*block.vtx[0], nFees, *pindex, chainparams, state)) {
+        return false;
+    }
 
     if (!control.Wait())
         return state.DoS(100, error("%s: CheckQueue failed", __func__), REJECT_INVALID, "block-validation-failed");
@@ -3610,8 +3611,6 @@ bool CheckBlock(const CBlock& block, CValidationState& state, const Consensus::P
         return state.DoS(100, false, REJECT_INVALID, "bad-hash-algo", false, "The wrong hashing algo is used for the block.");
     }
 
-
-
     // Check that the header is valid (particularly PoW).  This is mostly
     // redundant with the call in AcceptBlockHeader.
     if (!CheckBlockHeader(block, state, consensusParams, fCheckPOW)) {
@@ -3713,7 +3712,6 @@ bool CheckBlock(const CBlock& block, CValidationState& state, const Consensus::P
             return state.DoS(100, false, REJECT_INVALID, "bad-price-iszero3", false, "The price must be greater than zero.");
         }
     } 
-
 
     if (block.nTime > consensusParams.DEACTIVATEPRICESERVERS && (block.nPriceInfo.priceTime != 0 || block.nPriceInfo2.priceTime != 0 || block.nPriceInfo3.priceTime != 0))
     {
@@ -3881,6 +3879,7 @@ bool CheckBlock(const CBlock& block, CValidationState& state, const Consensus::P
     // First transaction must be coinbase, the rest must not be
     if (block.vtx.empty() || !block.vtx[0]->IsCoinBase())
         return state.DoS(100, false, REJECT_INVALID, "bad-cb-missing", false, "first tx is not coinbase");
+
     for (unsigned int i = 1; i < block.vtx.size(); i++)
         if (block.vtx[i]->IsCoinBase())
             return state.DoS(100, false, REJECT_INVALID, "bad-cb-multiple", false, "more than one coinbase");
@@ -3941,7 +3940,6 @@ bool CheckBlock(const CBlock& block, CValidationState& state, const Consensus::P
             if (tx->nVersion < 4) {
                 return state.DoS(100, false, REJECT_INVALID, "bad-tx-version", false, "Only version 4 transactions with nonprivacy information are allowed after the time of the fork.");
             }
-            
         }
     }
 

@@ -26,7 +26,7 @@ class CValidationState;
 namespace VeriBlock {
 
 using BlockBytes = std::vector<uint8_t>;
-using PopRewards = std::map<CScript, CAmount>;
+using PoPRewards = std::map<CScript, CAmount>;
 
 void SetPop(CDBWrapper& db);
 
@@ -50,6 +50,11 @@ void addDisconnectedPopdata(const altintegration::PopData& popData);
 
 std::vector<BlockBytes> getLastKnownVBKBlocks(size_t blocks);
 std::vector<BlockBytes> getLastKnownBTCBlocks(size_t blocks);
+
+PoPRewards getPopRewards(const CBlockIndex& pindexPrev, const CChainParams& params);
+void addPopPayoutsIntoCoinbaseTx(CMutableTransaction& coinbaseTx, const CBlockIndex& pindexPrev, const CChainParams& params);
+bool checkCoinbaseTxWithPopRewards(const CTransaction& tx, const CAmount& nFees, const CBlockIndex& pindexPrev, const CChainParams& params, CValidationState& state);
+CAmount getCoinbaseSubsidy(const CAmount& subsidy, int32_t height, const CChainParams& params);
 
 } // namespace VeriBlock
 
