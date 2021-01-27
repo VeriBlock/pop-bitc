@@ -92,6 +92,8 @@ struct TestChain100Setup : public TestingSetup {
 
     std::vector<CTransactionRef> m_coinbase_txns; // For convenience, coinbase transactions
     CKey coinbaseKey; // private/public key needed to spend coinbase transactions
+    // VeriBlock: make nonce global to avoid duplicate block hashes
+    unsigned int extraNonce = 0;
 };
 
 class CTxMemPoolEntry;

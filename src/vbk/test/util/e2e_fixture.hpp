@@ -65,7 +65,10 @@ struct E2eFixture : public TestChain100Setup {
     void InvalidateTestBlock(CBlockIndex* pblock)
     {
         CValidationState state;
-        InvalidateBlock(state, Params(), pblock);
+        {
+            LOCK(cs_main);
+            InvalidateBlock(state, Params(), pblock);
+        }
         ActivateBestChain(state, Params());
         mempool.clear();
     }

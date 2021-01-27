@@ -116,5 +116,11 @@ inline std::vector<uint8_t> uintToVector(const uint256& from)
     return std::vector<uint8_t>{from.begin(), from.end()};
 }
 
+//PopData weight
+inline int64_t GetPopDataWeight(const altintegration::PopData& pop_data)
+{
+    return ::GetSerializeSize(pop_data, PROTOCOL_VERSION | SERIALIZE_TRANSACTION_NO_WITNESS) * (WITNESS_SCALE_FACTOR - 1) + ::GetSerializeSize(pop_data, PROTOCOL_VERSION);
+}
+
 } // namespace VeriBlock
 #endif //BITC_SRC_VBK_UTIL_HPP
