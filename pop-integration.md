@@ -41,6 +41,7 @@ make check
 ```sh
 git clone https://github.com/VeriBlock/alt-integration-cpp.git
 cd alt-integration-cpp
+git checkout 4154c94c9eb6c605f306158d673dcefef3f6363e
 mkdir build
 cd build
 cmake .. -DCMAKE_INSTALL_PREFIX=/usr/local -DWITH_PYPOPMINER=ON
