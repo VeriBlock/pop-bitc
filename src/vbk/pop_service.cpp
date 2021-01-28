@@ -15,6 +15,7 @@
 #endif //WIN32
 
 #include <vbk/adaptors/block_provider.hpp>
+#include <vbk/p2p_sync.hpp>
 #include <vbk/pop_common.hpp>
 #include <vbk/pop_service.hpp>
 
@@ -30,6 +31,11 @@ void SetPop(CDBWrapper& db)
 
     SetPop(std::shared_ptr<altintegration::PayloadsProvider>(payloads_provider),
         std::shared_ptr<altintegration::BlockProvider>(block_provider));
+
+    auto& app = GetPop();
+    app.mempool->onAccepted<altintegration::ATV>(VeriBlock::p2p::offerPopDataToAllNodes<altintegration::ATV>);
+    app.mempool->onAccepted<altintegration::VTB>(VeriBlock::p2p::offerPopDataToAllNodes<altintegration::VTB>);
+    app.mempool->onAccepted<altintegration::VbkBlock>(VeriBlock::p2p::offerPopDataToAllNodes<altintegration::VbkBlock>);
 }
 
 PayloadsProvider& GetPayloadsProvider()

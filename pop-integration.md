@@ -338,7 +338,7 @@ _method ProcessMessage_
                      fBlockReconstructed = true;
 +                    // VeriBlock: check for empty popData
 +                    if(pblock && pblock->nVersion & VeriBlock::POP_BLOCK_VERSION_BIT) {
-+                        VBK_ASSERT(!pblock->popData.empty() && "POP bit is set and POP data is empty");
++                        assert(!pblock->popData.empty() && "POP bit is set and POP data is empty");
 +                    }
                  }
              }
@@ -4323,4 +4323,655 @@ VBK_TESTS =\
 -  vbk/test/unit/pop_reward_tests.cpp
 +  vbk/test/unit/pop_reward_tests.cpp \
 +  vbk/test/unit/forkresolution_tests.cpp
+```
+
+## Update P2P protocol.
+
+### Small refactoring for better validation result management.
+
+[<font style="color: red"> src/consensus/validation.h </font>]
+```diff
+     std::string GetRejectReason() const { return strRejectReason; }
+     std::string GetDebugMessage() const { return strDebugMessage; }
++
++    // VeriBlock: helpers
++    std::string ToString() const {return strRejectReason + ": " + strDebugMessage; }
++
++    operator altintegration::ValidationState() {
++        altintegration::ValidationState v;
++        if(IsInvalid()) {
++            v.Invalid(strRejectReason, strDebugMessage);
++            return v;
++        }
++
++        if(IsError()) {
++            v.Invalid(strRejectReason);
++            return v;
++        }
++
++        return v;
++    }
+ };
+```
+
+### Add P2P service files: p2p_sync.hpp, p2p_sync.cpp.
+
+[<font style="color: red"> src/vbk/p2p_sync.hpp </font>]
+```
+// Copyright (c) 2019-2020 Xenios SEZC
+// https://www.veriblock.org
+// Distributed under the MIT software license, see the accompanying
+// file COPYING or http://www.opensource.org/licenses/mit-license.php.
+
+#ifndef BITCASH_SRC_VBK_P2P_SYNC_HPP
+#define BITCASH_SRC_VBK_P2P_SYNC_HPP
+
+#include <chainparams.h>
+#include <map>
+#include <net_processing.h>
+#include <netmessagemaker.h>
+#include <rpc/blockchain.h>
+#include <validation.h>
+#include <vbk/pop_common.hpp>
+#include <veriblock/mempool.hpp>
+
+namespace VeriBlock {
+
+namespace p2p {
+
+struct PopP2PState {
+    uint32_t known_pop_data{0};
+    uint32_t offered_pop_data{0};
+    uint32_t requested_pop_data{0};
+};
+
+// The state of the Node that stores already known Pop Data
+struct PopDataNodeState {
+    // we use map to store DDoS prevention counter as a value in the map
+    std::map<altintegration::ATV::id_t, PopP2PState> atv_state{};
+    std::map<altintegration::VTB::id_t, PopP2PState> vtb_state{};
+    std::map<altintegration::VbkBlock::id_t, PopP2PState> vbk_blocks_state{};
+
+    template <typename T>
+    std::map<typename T::id_t, PopP2PState>& getMap();
+};
+
+PopDataNodeState& getPopDataNodeState(const NodeId& id);
+
+void erasePopDataNodeState(const NodeId& id);
+
+} // namespace p2p
+
+} // namespace VeriBlock
+
+
+namespace VeriBlock {
+
+namespace p2p {
+
+const static std::string get_prefix = "g";
+const static std::string offer_prefix = "of";
+
+const static uint32_t MAX_POP_DATA_SENDING_AMOUNT = 100;
+const static uint32_t MAX_POP_MESSAGE_SENDING_COUNT = 30;
+
+template <typename pop_t>
+void offerPopDataToAllNodes(const pop_t& p)
+{
+    std::vector<std::vector<uint8_t>> p_id = {p.getId().asVector()};
+    CConnman* connman = g_connman.get();
+    const CNetMsgMaker msgMaker(PROTOCOL_VERSION);
+
+    connman->ForEachNode([&connman, &msgMaker, &p_id](CNode* node) {
+        LOCK(cs_main);
+
+        auto& pop_state_map = getPopDataNodeState(node->GetId()).getMap<pop_t>();
+        PopP2PState& pop_state = pop_state_map[p_id[0]];
+        if (pop_state.offered_pop_data == 0) {
+            ++pop_state.offered_pop_data;
+            connman->PushMessage(node, msgMaker.Make(offer_prefix + pop_t::name(), p_id));
+        }
+    });
+}
+
+
+template <typename PopDataType>
+void offerPopData(CNode* node, CConnman* connman, const CNetMsgMaker& msgMaker) EXCLUSIVE_LOCKS_REQUIRED(cs_main)
+{
+    AssertLockHeld(cs_main);
+    auto& pop_state_map = getPopDataNodeState(node->GetId()).getMap<PopDataType>();
+    auto& pop_mempool = *VeriBlock::GetPop().mempool;
+    std::vector<std::vector<uint8_t>> hashes;
+
+    auto addhashes = [&](const std::unordered_map<typename PopDataType::id_t, std::shared_ptr<PopDataType>>& map) {
+        for (const auto& el : map) {
+            PopP2PState& pop_state = pop_state_map[el.first];
+            if (pop_state.offered_pop_data == 0 && pop_state.known_pop_data == 0) {
+                ++pop_state.offered_pop_data;
+                hashes.push_back(el.first.asVector());
+            }
+
+            if (hashes.size() == MAX_POP_DATA_SENDING_AMOUNT) {
+                connman->PushMessage(node, msgMaker.Make(offer_prefix + PopDataType::name(), hashes));
+                hashes.clear();
+            }
+        }
+    };
+
+    addhashes(pop_mempool.getMap<PopDataType>());
+    addhashes(pop_mempool.getInFlightMap<PopDataType>());
+
+    if (!hashes.empty()) {
+        connman->PushMessage(node, msgMaker.Make(offer_prefix + PopDataType::name(), hashes));
+    }
+}
+
+int processPopData(CNode* pfrom, const std::string& strCommand, CDataStream& vRecv, CConnman* connman);
+
+} // namespace p2p
+} // namespace VeriBlock
+
+
+#endif
+```
+[<font style="color: red"> src/vbk/p2p_sync.cpp </font>]
+```
+// Copyright (c) 2019-2020 Xenios SEZC
+// https://www.veriblock.org
+// Distributed under the MIT software license, see the accompanying
+// file COPYING or http://www.opensource.org/licenses/mit-license.php.
+
+#include "vbk/p2p_sync.hpp"
+#include "validation.h"
+#include <veriblock/entities/atv.hpp>
+#include <veriblock/entities/vbkblock.hpp>
+#include <veriblock/entities/vtb.hpp>
+
+namespace VeriBlock {
+namespace p2p {
+
+static std::map<NodeId, std::shared_ptr<PopDataNodeState>> mapPopDataNodeState;
+
+template <>
+std::map<altintegration::ATV::id_t, PopP2PState>& PopDataNodeState::getMap<altintegration::ATV>()
+{
+    return atv_state;
+}
+
+template <>
+std::map<altintegration::VTB::id_t, PopP2PState>& PopDataNodeState::getMap<altintegration::VTB>()
+{
+    return vtb_state;
+}
+
+template <>
+std::map<altintegration::VbkBlock::id_t, PopP2PState>& PopDataNodeState::getMap<altintegration::VbkBlock>()
+{
+    return vbk_blocks_state;
+}
+
+PopDataNodeState& getPopDataNodeState(const NodeId& id) EXCLUSIVE_LOCKS_REQUIRED(cs_main)
+{
+    AssertLockHeld(cs_main);
+    std::shared_ptr<PopDataNodeState>& val = mapPopDataNodeState[id];
+    if (val == nullptr) {
+        mapPopDataNodeState[id] = std::make_shared<PopDataNodeState>();
+        val = mapPopDataNodeState[id];
+    }
+    return *val;
+}
+
+void erasePopDataNodeState(const NodeId& id) EXCLUSIVE_LOCKS_REQUIRED(cs_main)
+{
+    AssertLockHeld(cs_main);
+    mapPopDataNodeState.erase(id);
+}
+
+template <typename pop_t>
+bool processGetPopData(CNode* node, CConnman* connman, CDataStream& vRecv, altintegration::MemPool& pop_mempool) EXCLUSIVE_LOCKS_REQUIRED(cs_main)
+{
+    AssertLockHeld(cs_main);
+    std::vector<std::vector<uint8_t>> requested_data;
+    vRecv >> requested_data;
+
+    if (requested_data.size() > MAX_POP_DATA_SENDING_AMOUNT) {
+        LogPrint(BCLog::NET, "peer %d send oversized message getdata size() = %u \n", node->GetId(), requested_data.size());
+        Misbehaving(node->GetId(), 20, strprintf("message getdata size() = %u", requested_data.size()));
+        return false;
+    }
+
+    auto& pop_state_map = getPopDataNodeState(node->GetId()).getMap<pop_t>();
+
+    const CNetMsgMaker msgMaker(PROTOCOL_VERSION);
+    for (const auto& data_hash : requested_data) {
+        PopP2PState& pop_state = pop_state_map[data_hash];
+        uint32_t ddosPreventionCounter = pop_state.known_pop_data++;
+
+        if (ddosPreventionCounter > MAX_POP_MESSAGE_SENDING_COUNT) {
+            LogPrint(BCLog::NET, "peer %d is spamming pop data %s \n", node->GetId(), pop_t::name());
+            Misbehaving(node->GetId(), 20, strprintf("peer %d is spamming pop data %s", node->GetId(), pop_t::name()));
+            return false;
+        }
+
+        const auto* data = pop_mempool.get<pop_t>(data_hash);
+        if (data != nullptr) {
+            connman->PushMessage(node, msgMaker.Make(pop_t::name(), *data));
+        }
+    }
+
+    return true;
+}
+
+template <typename pop_t>
+bool processOfferPopData(CNode* node, CConnman* connman, CDataStream& vRecv, altintegration::MemPool& pop_mempool) EXCLUSIVE_LOCKS_REQUIRED(cs_main)
+{
+    AssertLockHeld(cs_main);
+    LogPrint(BCLog::NET, "received offered pop data: %s, bytes size: %d\n", pop_t::name(), vRecv.size());
+
+    // do not process 'offers' during initial block download
+    if (IsInitialBlockDownload()) {
+        // TODO: may want to keep a list of offered payloads, then filter all existing (on-chain) payloadsm and 'GET' others
+        return true;
+    }
+
+    std::vector<std::vector<uint8_t>> offered_data;
+    vRecv >> offered_data;
+
+    if (offered_data.size() > MAX_POP_DATA_SENDING_AMOUNT) {
+        LogPrint(BCLog::NET, "peer %d sent oversized message getdata size() = %u \n", node->GetId(), offered_data.size());
+        Misbehaving(node->GetId(), 20, strprintf("message getdata size() = %u", offered_data.size()));
+        return false;
+    }
+
+    auto& pop_state_map = getPopDataNodeState(node->GetId()).getMap<pop_t>();
+
+    std::vector<std::vector<uint8_t>> requested_data;
+    const CNetMsgMaker msgMaker(PROTOCOL_VERSION);
+    for (const auto& data_hash : offered_data) {
+        PopP2PState& pop_state = pop_state_map[data_hash];
+        uint32_t ddosPreventionCounter = pop_state.requested_pop_data++;
+
+        if (!pop_mempool.get<pop_t>(data_hash)) {
+            requested_data.push_back(data_hash);
+        } else if (ddosPreventionCounter > MAX_POP_MESSAGE_SENDING_COUNT) {
+            LogPrint(BCLog::NET, "peer %d is spamming pop data %s \n", node->GetId(), pop_t::name());
+            Misbehaving(node->GetId(), 20, strprintf("peer %d is spamming pop data %s", node->GetId(), pop_t::name()));
+            return false;
+        }
+    }
+
+    if (!requested_data.empty()) {
+        connman->PushMessage(node, msgMaker.Make(get_prefix + pop_t::name(), requested_data));
+    }
+
+    return true;
+}
+
+template <typename pop_t>
+bool processPopData(CNode* node, CDataStream& vRecv, altintegration::MemPool& pop_mempool) EXCLUSIVE_LOCKS_REQUIRED(cs_main)
+{
+    AssertLockHeld(cs_main);
+    LogPrint(BCLog::NET, "received pop data: %s, bytes size: %d\n", pop_t::name(), vRecv.size());
+    pop_t data;
+    vRecv >> data;
+
+    auto& pop_state_map = getPopDataNodeState(node->GetId()).getMap<pop_t>();
+    PopP2PState& pop_state = pop_state_map[data.getId()];
+
+    if (pop_state.requested_pop_data == 0) {
+        LogPrint(BCLog::NET, "peer %d send pop data %s that has not been requested \n", node->GetId(), pop_t::name());
+        Misbehaving(node->GetId(), 20, strprintf("peer %d send pop data %s that has not been requested", node->GetId(), pop_t::name()));
+        return false;
+    }
+
+    uint32_t ddosPreventionCounter = pop_state.requested_pop_data++;
+
+    if (ddosPreventionCounter > MAX_POP_MESSAGE_SENDING_COUNT) {
+        LogPrint(BCLog::NET, "peer %d is spaming pop data %s\n", node->GetId(), pop_t::name());
+        Misbehaving(node->GetId(), 20, strprintf("peer %d is spamming pop data %s", node->GetId(), pop_t::name()));
+        return false;
+    }
+
+    altintegration::ValidationState state;
+    auto result = pop_mempool.submit(data, state);
+    if (!result && result.status == altintegration::MemPool::FAILED_STATELESS) {
+        LogPrint(BCLog::NET, "peer %d sent statelessly invalid pop data: %s\n", node->GetId(), state.toString());
+        Misbehaving(node->GetId(), 20, strprintf("statelessly invalid pop data getdata, reason: %s", state.toString()));
+        return false;
+    }
+
+    return true;
+}
+
+int processPopData(CNode* pfrom, const std::string& strCommand, CDataStream& vRecv, CConnman* connman)
+{
+    auto& pop_mempool = *VeriBlock::GetPop().mempool;
+
+    // process Pop Data
+    if (strCommand == altintegration::ATV::name()) {
+        LOCK(cs_main);
+        return processPopData<altintegration::ATV>(pfrom, vRecv, pop_mempool);
+    }
+
+    if (strCommand == altintegration::VTB::name()) {
+        LOCK(cs_main);
+        return processPopData<altintegration::VTB>(pfrom, vRecv, pop_mempool);
+    }
+
+    if (strCommand == altintegration::VbkBlock::name()) {
+        LOCK(cs_main);
+        return processPopData<altintegration::VbkBlock>(pfrom, vRecv, pop_mempool);
+    }
+    //----------------------
+
+    // offer Pop Data
+    if (strCommand == offer_prefix + altintegration::ATV::name()) {
+        LOCK(cs_main);
+        return processOfferPopData<altintegration::ATV>(pfrom, connman, vRecv, pop_mempool);
+    }
+
+    if (strCommand == offer_prefix + altintegration::VTB::name()) {
+        LOCK(cs_main);
+        return processOfferPopData<altintegration::VTB>(pfrom, connman, vRecv, pop_mempool);
+    }
+
+    if (strCommand == offer_prefix + altintegration::VbkBlock::name()) {
+        LOCK(cs_main);
+        return processOfferPopData<altintegration::VbkBlock>(pfrom, connman, vRecv, pop_mempool);
+    }
+    //-----------------
+
+    // get Pop Data
+    if (strCommand == get_prefix + altintegration::ATV::name()) {
+        LOCK(cs_main);
+        return processGetPopData<altintegration::ATV>(pfrom, connman, vRecv, pop_mempool);
+    }
+
+    if (strCommand == get_prefix + altintegration::VTB::name()) {
+        LOCK(cs_main);
+        return processGetPopData<altintegration::VTB>(pfrom, connman, vRecv, pop_mempool);
+    }
+
+    if (strCommand == get_prefix + altintegration::VbkBlock::name()) {
+        LOCK(cs_main);
+        return processGetPopData<altintegration::VbkBlock>(pfrom, connman, vRecv, pop_mempool);
+    }
+
+    return -1;
+}
+
+
+} // namespace p2p
+
+} // namespace VeriBlock
+```
+
+### Allow node to download chain with less chainWork.
+
+[<font style="color: red"> src/net_processing.cpp </font>]
+```diff
+ #include <utilmoneystr.h>
+ #include <utilstrencodings.h>
++#include <vbk/p2p_sync.hpp>
+```
+_struct CNodeState_
+```diff
+     bool fPreferHeaders;
+     //! Whether this peer wants invs or cmpctblocks (when possible) for block announcements.
+     bool fPreferHeaderAndIDs;
++
++    //! VeriBlock: The block this peer thinks is current tip.
++    const CBlockIndex *pindexLastAnnouncedBlock = nullptr;
++    //! VeriBlock: The last full block we both have from announced chain.
++    const CBlockIndex *pindexLastCommonAnnouncedBlock = nullptr;
++
+```
+```diff
++// VeriBlock
++/** Update tracking information about which a tip a peer is assumed to have. */
++static void UpdateBestChainTip(NodeId nodeid, const uint256 &tip) EXCLUSIVE_LOCKS_REQUIRED(cs_main) {
++    CNodeState *state = State(nodeid);
++    assert(state != nullptr);
++
++    const CBlockIndex* pindex = LookupBlockIndex(tip);
++    if (pindex && pindex->nChainWork > 0) {
++        state->pindexLastAnnouncedBlock = pindex;
++        LogPrint(BCLog::NET, "peer=%s: announced best chain %s\n", nodeid, tip.GetHex());
++
++        // announced block is better by chainwork. update pindexBestKnownBlock
++        if(state->pindexBestKnownBlock == nullptr || pindex->nChainWork >= state->pindexBestKnownBlock->nChainWork) {
++            state->pindexBestKnownBlock = pindex;
++        }
++    }
++
++    ProcessBlockAvailability(nodeid);
++}
++
+```
+```diff
+ /** Update pindexLastCommonBlock and add not-in-flight missing successors to vBlocks, until it has
+  *  at most count entries. */
+-static void FindNextBlocksToDownload(NodeId nodeid, unsigned int count, std::vector<const CBlockIndex*>& vBlocks, NodeId& nodeStaller, const Consensus::Params& consensusParams) {
++static void FindNextBlocksToDownload(NodeId nodeid, unsigned int count, std::vector<const CBlockIndex*>& vBlocks, NodeId& nodeStaller, const Consensus::Params& consensusParams,
++    // either pindexBestBlock or pindexLastAnouncedBlock
++    const CBlockIndex* bestBlock,
++    // out parameter: sets last common block
++    const CBlockIndex** lastCommonBlockOut) {
+     if (count == 0)
+         return;
+
+     vBlocks.reserve(vBlocks.size() + count);
+-    CNodeState *state = State(nodeid);
+-    assert(state != nullptr);
+-
+-    // Make sure pindexBestKnownBlock is up to date, we'll need it.
+-    ProcessBlockAvailability(nodeid);
+
+-    if (state->pindexBestKnownBlock == nullptr || state->pindexBestKnownBlock->nChainWork < chainActive.Tip()->nChainWork || state->pindexBestKnownBlock->nChainWork < nMinimumChainWork) {
++    if (bestBlock == nullptr || bestBlock->nChainWork < nMinimumChainWork) {
+         // This peer has nothing interesting.
+         return;
+     }
+
+-    if (state->pindexLastCommonBlock == nullptr) {
++    assert(lastCommonBlockOut);
++
++    if (*lastCommonBlockOut == nullptr) {
+         // Bootstrap quickly by guessing a parent of our best tip is the forking point.
+         // Guessing wrong in either direction is not a problem.
+-        state->pindexLastCommonBlock = chainActive[std::min(state->pindexBestKnownBlock->nHeight, chainActive.Height())];
++        *lastCommonBlockOut = chainActive[std::min(bestBlock->nHeight, chainActive.Height())];
+     }
+
+     // If the peer reorganized, our previous pindexLastCommonBlock may not be an ancestor
+     // of its current tip anymore. Go back enough to fix that.
+-    state->pindexLastCommonBlock = LastCommonAncestor(state->pindexLastCommonBlock, state->pindexBestKnownBlock);
+-    if (state->pindexLastCommonBlock == state->pindexBestKnownBlock)
++    *lastCommonBlockOut = LastCommonAncestor(*lastCommonBlockOut, bestBlock);
++    if (*lastCommonBlockOut == bestBlock)
+         return;
+
+     std::vector<const CBlockIndex*> vToFetch;
+-    const CBlockIndex *pindexWalk = state->pindexLastCommonBlock;
++    const CBlockIndex *pindexWalk = *lastCommonBlockOut;
+     // Never fetch further than the best block we know the peer has, or more than BLOCK_DOWNLOAD_WINDOW + 1 beyond the last
+     // linked block we have in common with this peer. The +1 is so we can detect stalling, namely if we would be able to
+     // download that next block if the window were 1 larger.
+-    int nWindowEnd = state->pindexLastCommonBlock->nHeight + BLOCK_DOWNLOAD_WINDOW;
+-    int nMaxHeight = std::min<int>(state->pindexBestKnownBlock->nHeight, nWindowEnd + 1);
++    int nWindowEnd = (*lastCommonBlockOut)->nHeight + BLOCK_DOWNLOAD_WINDOW;
++    int nMaxHeight = std::min<int>(bestBlock->nHeight, nWindowEnd + 1);
+     NodeId waitingfor = -1;
+     while (pindexWalk->nHeight < nMaxHeight) {
+```
+_method FindNextBlocksToDownload_
+```diff
+         int nToFetch = std::min(nMaxHeight - pindexWalk->nHeight, std::max<int>(count - vBlocks.size(), 128));
+         vToFetch.resize(nToFetch);
+-        pindexWalk = state->pindexBestKnownBlock->GetAncestor(pindexWalk->nHeight + nToFetch);
++        pindexWalk = bestBlock->GetAncestor(pindexWalk->nHeight + nToFetch);
+         vToFetch[nToFetch - 1] = pindexWalk;
+```
+```diff
+             if (pindex->nStatus & BLOCK_HAVE_DATA || chainActive.Contains(pindex)) {
+                 if (pindex->nChainTx)
+-                    state->pindexLastCommonBlock = pindex;
++                    *lastCommonBlockOut = pindex;
+             } else if (mapBlocksInFlight.count(pindex->GetBlockHash()) == 0) {
+```
+_method PeerLogicValidation::FinalizeNode_
+```diff
+     assert(g_outbound_peers_with_protect_from_disconnect >= 0);
+
+     mapNodeState.erase(nodeid);
++    // VeriBlock
++    VeriBlock::p2p::erasePopDataNodeState(nodeid);
+
+     if (mapNodeState.empty()) {
+```
+_method ProcessHeadersMessage_
+```diff
+         // If this set of headers is valid and ends in a block with at least as
+         // much work as our tip, download as much as possible.
+-        if (fCanDirectFetch && pindexLast->IsValid(BLOCK_VALID_TREE) && chainActive.Tip()->nChainWork <= pindexLast->nChainWork) {
++        if (fCanDirectFetch && pindexLast->IsValid(BLOCK_VALID_TREE)
++            // VeriBlock: download the chain suggested by the peer
++            /*&& chainActive.Tip()->nChainWork <= pindexLast->nChainWork*/) {
+             std::vector<const CBlockIndex*> vToFetch;
+             const CBlockIndex *pindexWalk = pindexLast;
+```
+_method ProcessMessage_
+```diff
+     }
+
++    // VeriBlock: if POP is not enabled, ignore POP-related P2P calls
++    int tipHeight = chainActive.Height();
++    if (Params().isPopActive(tipHeight)) {
++        int pop_res = VeriBlock::p2p::processPopData(pfrom, strCommand, vRecv, connman);
++        if (pop_res >= 0) {
++            return pop_res;
++        }
++    }
++
+
+     if (!(pfrom->GetLocalServices() & NODE_BLOOM) &&
+```
+```diff
+             uint64_t nonce = 0;
+             vRecv >> nonce;
++
++            if(pfrom->nVersion > PING_BESTCHAIN_VERSION) {
++                // VeriBlock: immediately after nonce, receive best block hash
++                LOCK(cs_main);
++                uint256 bestHash;
++                vRecv >> bestHash;
++                UpdateBestChainTip(pfrom->GetId(), bestHash);
++
++                connman->PushMessage(pfrom, msgMaker.Make(NetMsgType::PONG, nonce, chainActive.Tip()->GetBlockHash()));
++                return true;
++            }
++
+             // Echo the message back with the nonce. This allows for two useful features:
+```
+```diff
+                     }
+                 }
++                // VeriBlock
++                if(pfrom->nVersion > PING_BESTCHAIN_VERSION) {
++                    LOCK(cs_main);
++                    uint256 bestHash;
++                    vRecv >> bestHash;
++                    UpdateBestChainTip(pfrom->GetId(), bestHash);
++                }
+             } else {
+                 sProblem = "Unsolicited pong without ping";
+             }
+```
+_method PeerLogicValidation::SendMessages_
+```diff
+             if (pto->nVersion > BIP0031_VERSION) {
+                 pto->nPingNonceSent = nonce;
+-                connman->PushMessage(pto, msgMaker.Make(NetMsgType::PING, nonce));
++                if(pto->nVersion > PING_BESTCHAIN_VERSION) {
++                    connman->PushMessage(pto, msgMaker.Make(NetMsgType::PING, nonce, chainActive.Tip()->GetBlockHash()));
++                } else {
++                    connman->PushMessage(pto, msgMaker.Make(NetMsgType::PING, nonce));
++                }
+             } else {
+                 // Peer is too old to support ping command with nonce, pong will never arrive.
+                 pto->nPingNonceSent = 0;
+```
+```diff
+         if (!vInv.empty())
+             connman->PushMessage(pto, msgMaker.Make(NetMsgType::INV, vInv));
+
++        // VeriBlock offer Pop Data
++        {
++            VeriBlock::p2p::offerPopData<altintegration::ATV>(pto, connman, msgMaker);
++            VeriBlock::p2p::offerPopData<altintegration::VTB>(pto, connman, msgMaker);
++            VeriBlock::p2p::offerPopData<altintegration::VbkBlock>(pto, connman, msgMaker);
++        }
++
+         // Detect whether we're stalling
+         nNow = GetTimeMicros();
+```
+```diff
+             std::vector<const CBlockIndex*> vToDownload;
+             NodeId staller = -1;
+-            FindNextBlocksToDownload(pto->GetId(), MAX_BLOCKS_IN_TRANSIT_PER_PEER - state.nBlocksInFlight, vToDownload, staller, consensusParams);
++            // VeriBlock: find "blocks to download" in 2 chains: one that has "best chainwork", and second that is reported by peer as best.
++            ProcessBlockAvailability(pto->GetId());
++            // always download chain with higher chainwork
++            if(state.pindexBestKnownBlock) {
++                FindNextBlocksToDownload(pto->GetId(), MAX_BLOCKS_IN_TRANSIT_PER_PEER - state.nBlocksInFlight, vToDownload, staller, consensusParams, state.pindexBestKnownBlock, &state.pindexLastCommonBlock);
++            }
++            // should we fetch announced chain?
++            if(state.pindexLastAnnouncedBlock && state.pindexBestKnownBlock) {
++                // last announced block is by definition always <= chainwork than best known block by chainwork
++                assert(state.pindexLastAnnouncedBlock->nChainWork <= state.pindexBestKnownBlock->nChainWork);
++
++                // are they in the same chain?
++                if (state.pindexBestKnownBlock->GetAncestor(state.pindexLastAnnouncedBlock->nHeight) != state.pindexLastAnnouncedBlock) {
++                    // no, additionally sync 'announced' chain
++                    LogPrint(BCLog::NET, "Requesting announced best chain %d:%s from peer=%d\n", state.pindexLastAnnouncedBlock->GetBlockHash().ToString(),
++                        state.pindexLastAnnouncedBlock->nHeight, pto->GetId());
++                    FindNextBlocksToDownload(pto->GetId(), MAX_BLOCKS_IN_TRANSIT_PER_PEER - state.nBlocksInFlight, vToDownload, staller, consensusParams, state.pindexLastAnnouncedBlock, &state.pindexLastCommonAnnouncedBlock);
++                }
++            }
+             for (const CBlockIndex *pindex : vToDownload) {
+                 uint32_t nFetchFlags = GetFetchFlags(pto);
+```
+
+### Subscribe the library to the mempool events.
+
+[<font style="color: red"> src/vbk/pop_service.cpp </font>]
+```diff
+ #include <vbk/adaptors/block_provider.hpp>
++#include <vbk/p2p_sync.hpp>
+ #include <vbk/pop_common.hpp>
+ #include <vbk/pop_service.hpp>
+```
+_method SetPop_
+```diff
+     SetPop(std::shared_ptr<altintegration::PayloadsProvider>(payloads_provider),
+         std::shared_ptr<altintegration::BlockProvider>(block_provider));
++
++    auto& app = GetPop();
++    app.mempool->onAccepted<altintegration::ATV>(VeriBlock::p2p::offerPopDataToAllNodes<altintegration::ATV>);
++    app.mempool->onAccepted<altintegration::VTB>(VeriBlock::p2p::offerPopDataToAllNodes<altintegration::VTB>);
++    app.mempool->onAccepted<altintegration::VbkBlock>(VeriBlock::p2p::offerPopDataToAllNodes<altintegration::VbkBlock>);
+ }
+```
+
+### Add P2P service to the makefile.
+
+[<font style="color: red"> src/Makefile.am </font>]
+```diff
+libbitcash_server_a_SOURCES = \
+   vbk/params.cpp \
+   rest.cpp \
+   stratum.cpp \
++  vbk/p2p_sync.hpp \
++  vbk/p2p_sync.cpp \
+   rpc/blockchain.cpp \
 ```

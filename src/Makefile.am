@@ -237,6 +237,8 @@ libbitcash_server_a_SOURCES = \
   vbk/params.cpp \
   rest.cpp \
   stratum.cpp \
+  vbk/p2p_sync.hpp \
+  vbk/p2p_sync.cpp \
   rpc/blockchain.cpp \
   rpc/mining.cpp \
   rpc/misc.cpp \

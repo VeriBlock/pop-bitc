@@ -88,6 +88,24 @@ public:
     unsigned int GetRejectCode() const { return chRejectCode; }
     std::string GetRejectReason() const { return strRejectReason; }
     std::string GetDebugMessage() const { return strDebugMessage; }
+
+    // VeriBlock: helpers
+    std::string ToString() const {return strRejectReason + ": " + strDebugMessage; }
+
+    operator altintegration::ValidationState() {
+        altintegration::ValidationState v;
+        if(IsInvalid()) {
+            v.Invalid(strRejectReason, strDebugMessage);
+            return v;
+        }
+
+        if(IsError()) {
+            v.Invalid(strRejectReason);
+            return v;
+        }
+
+        return v;
+    }
 };
 
 // These implement the weight = (stripped_size * 4) + witness_size formula,
