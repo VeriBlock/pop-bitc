@@ -4708,6 +4708,22 @@ int processPopData(CNode* pfrom, const std::string& strCommand, CDataStream& vRe
 
 ### Allow node to download chain with less chainWork.
 
+[<font style="color: red"> src/version.h </font>]
+```diff
+  * network protocol versioning
+  */
+
+-static const int PROTOCOL_VERSION = 70015;
++static const int PROTOCOL_VERSION = 80000;
+```
+```diff
+ static const int INVALID_CB_NO_BAN_VERSION = 70015;
+
++//! VeriBlock: ping p2p msg contains 'best chain'
++static const int PING_BESTCHAIN_VERSION = 80000;
++
+```
+
 [<font style="color: red"> src/net_processing.cpp </font>]
 ```diff
  #include <utilmoneystr.h>
