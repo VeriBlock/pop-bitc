@@ -78,6 +78,7 @@ VBK_H = \
   vbk/merkle.hpp \
   vbk/util.hpp \
   vbk/vbk.hpp \
+  vbk/adaptors/univalue_json.hpp \
   vbk/adaptors/block_batch_adaptor.hpp \
   vbk/adaptors/payloads_provider.hpp
 
@@ -237,6 +238,8 @@ libbitcash_server_a_SOURCES = \
   vbk/params.cpp \
   rest.cpp \
   stratum.cpp \
+  vbk/rpc_register.hpp \
+  vbk/rpc_register.cpp \
   vbk/p2p_sync.hpp \
   vbk/p2p_sync.cpp \
   rpc/blockchain.cpp \

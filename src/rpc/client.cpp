@@ -26,6 +26,14 @@ public:
  */
 static const CRPCConvertParam vRPCConvertParams[] =
 {
+    // VeriBlock
+    { "getbtcblockhash", 0, "height"},
+    { "getvbkblockhash", 0, "height"},
+    { "getrawatv", 1, "verbose"},
+    { "getrawvtb", 1, "verbose"},
+    { "getrawvbkblock", 1, "verbose"},
+    { "getpopdatabyheight", 0, "block_height"},
+    // end VeriBlock
     { "setmocktime", 0, "timestamp" },
     { "generate", 0, "nblocks" },
     { "generate", 1, "maxtries" },
