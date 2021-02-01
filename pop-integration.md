@@ -41,10 +41,9 @@ make check
 ```sh
 git clone https://github.com/VeriBlock/alt-integration-cpp.git
 cd alt-integration-cpp
-git checkout 4154c94c9eb6c605f306158d673dcefef3f6363e
 mkdir build
 cd build
-cmake .. -DCMAKE_INSTALL_PREFIX=/usr/local -DWITH_PYPOPMINER=ON
+cmake .. -DCMAKE_INSTALL_PREFIX=/usr/local -DWITH_PYPOPTOOLS=ON
 make
 sudo make install
 ```
@@ -642,8 +641,7 @@ void StopPop();
 
 void SetPopConfig(const altintegration::Config& config);
 
-void SetPop(const std::shared_ptr<altintegration::PayloadsProvider>& payloads_provider,
-    const std::shared_ptr<altintegration::BlockProvider>& block_provider);
+void SetPop(std::shared_ptr<altintegration::PayloadsStorage> payloads_provider);
 
 altintegration::BlockIndex<altintegration::AltBlock>* GetAltBlockIndex(const uint256& hash);
 altintegration::BlockIndex<altintegration::AltBlock>* GetAltBlockIndex(const CBlockIndex* index);
@@ -687,10 +685,10 @@ void SetPopConfig(const altintegration::Config& newConfig)
     config = std::make_shared<altintegration::Config>(newConfig);
 }
 
-void SetPop(const std::shared_ptr<altintegration::PayloadsProvider>& payloads_provider, const std::shared_ptr<altintegration::BlockProvider>& block_provider)
+void SetPop(std::shared_ptr<altintegration::PayloadsStorage> db)
 {
     assert(config && "Config is not initialized. Invoke SetPopConfig.");
-    app = altintegration::PopContext::create(config, payloads_provider, block_provider);
+    app = altintegration::PopContext::create(config, db);
 }
 
 std::string toPrettyString(const altintegration::PopContext& pop)
@@ -1195,7 +1193,6 @@ _method AppInitRawTx_
  #include <rpc/register.h>
  #include <script/sigcache.h>
 +#include <vbk/params.hpp>
-+#include <vbk/pop_service.hpp>
 
  void CConnmanTest::AddNode(CNode& node)
 ```
@@ -1286,7 +1283,7 @@ libbitcash_server_a_SOURCES = \
 ### Add PayloadsProvider
 
 We should add a PayloadsProvider for the VeriBlock library. The main idea of such class is that we reuse the existing BitCash database. Our library allows to use the native implementation of the database. We implement it with PayloadsProvider class which is inherited from the [altintegration::PayloadsProvider](https://veriblock-pop-cpp.netlify.app/structaltintegration_1_1payloadsprovider) class.
-First step is to create new source files: payloads_provider.hpp, block_provider.hpp, block_iterator, block_batch_adaptor.hpp.
+First step is to create new source files: payloads_provider.hpp, block_provider.hpp.
 
 [<font style="color: red"> src/vbk/adaptors/payloads_provider.hpp </font>]
 ```
@@ -1308,8 +1305,7 @@ constexpr const char DB_VBK_PREFIX = '^';
 constexpr const char DB_VTB_PREFIX = '<';
 constexpr const char DB_ATV_PREFIX = '>';
 
-struct PayloadsProvider : public altintegration::PayloadsProvider {
-    using base = altintegration::PayloadsProvider;
+struct PayloadsProvider : public altintegration::PayloadsStorage {
     using key_t = std::vector<uint8_t>;
     using value_t = std::vector<uint8_t>;
 
@@ -1317,16 +1313,16 @@ struct PayloadsProvider : public altintegration::PayloadsProvider {
 
     PayloadsProvider(CDBWrapper& db) : db_(db) {}
 
-    void write(const altintegration::PopData& pop)
+    void writePayloads(const altintegration::PopData& payloads) override
     {
         auto batch = CDBBatch(db_);
-        for (const auto& b : pop.context) {
+        for (const auto& b : payloads.context) {
             batch.Write(std::make_pair(DB_VBK_PREFIX, b.getId()), b);
         }
-        for (const auto& b : pop.vtbs) {
+        for (const auto& b : payloads.vtbs) {
             batch.Write(std::make_pair(DB_VTB_PREFIX, b.getId()), b);
         }
-        for (const auto& b : pop.atvs) {
+        for (const auto& b : payloads.atvs) {
             batch.Write(std::make_pair(DB_ATV_PREFIX, b.getId()), b);
         }
         bool ret = db_.WriteBatch(batch, true);
@@ -1335,44 +1331,33 @@ struct PayloadsProvider : public altintegration::PayloadsProvider {
     }
 
     template <typename pop_t>
-    bool getPayloads(char dbPrefix, const std::vector<typename pop_t::id_t>& ids, std::vector<pop_t>& out, altintegration::ValidationState& state)
+    bool getPayloads(char dbPrefix, const typename pop_t::id_t& id, pop_t& out, altintegration::ValidationState& state)
     {
         auto& mempool = *GetPop().mempool;
-        out.reserve(ids.size());
-        for (size_t i = 0; i < ids.size(); i++) {
-            pop_t value;
-            const auto* memval = mempool.get<pop_t>(ids[i]);
-            if (memval != nullptr) {
-                value = *memval;
-            } else {
-                if (!db_.Read(std::make_pair(dbPrefix, ids[i]), value)) {
-                    return state.Invalid(pop_t::name() + "-read-error", i);
-                }
+        const auto* memval = mempool.template get<pop_t>(id);
+        if (memval != nullptr) {
+            out = *memval;
+        } else {
+            if (!db_.Read(std::make_pair(dbPrefix, id), out)) {
+                return state.Invalid(pop_t::name() + "-read-error");
             }
-            out.push_back(value);
         }
         return true;
     }
 
-    bool getATVs(const std::vector<altintegration::ATV::id_t>& ids,
-        std::vector<altintegration::ATV>& out,
-        altintegration::ValidationState& state) override
+    bool getATV(const altintegration::ATV::id_t& id, altintegration::ATV& out, altintegration::ValidationState& state) override
     {
-        return getPayloads(DB_ATV_PREFIX, ids, out, state);
+        return getPayloads(DB_ATV_PREFIX, id, out, state);
     }
 
-    bool getVTBs(const std::vector<altintegration::VTB::id_t>& ids,
-        std::vector<altintegration::VTB>& out,
-        altintegration::ValidationState& state) override
+    bool getVTB(const altintegration::VTB::id_t& id, altintegration::VTB& out, altintegration::ValidationState& state) override
     {
-        return getPayloads(DB_VTB_PREFIX, ids, out, state);
+        return getPayloads(DB_VTB_PREFIX, id, out, state);
     }
 
-    bool getVBKs(const std::vector<altintegration::VbkBlock::id_t>& ids,
-        std::vector<altintegration::VbkBlock>& out,
-        altintegration::ValidationState& state) override
+    bool getVBK(const altintegration::VbkBlock::id_t& id, altintegration::VbkBlock& out, altintegration::ValidationState& state) override
     {
-        return getPayloads(DB_VBK_PREFIX, ids, out, state);
+        return getPayloads(DB_VBK_PREFIX, id, out, state);
     }
 
 private:
@@ -1394,90 +1379,67 @@ private:
 #define INTEGRATION_REFERENCE_BITC_BLOCK_PROVIDER_HPP
 
 #include <dbwrapper.h>
-#include <vbk/adaptors/block_batch_adaptor.hpp>
-#include <vbk/adaptors/block_iterator.hpp>
 
-#include "veriblock/storage/block_provider.hpp"
+#include <utility>
+
+#include "veriblock/storage/block_batch.hpp"
+#include "veriblock/storage/block_iterator.hpp"
 
 namespace VeriBlock {
 
-namespace details {
+using altintegration::AltBlock;
+using altintegration::BlockIndex;
+using altintegration::BtcBlock;
+using altintegration::VbkBlock;
+
+constexpr const char DB_BTC_BLOCK = 'Q';
+constexpr const char DB_BTC_TIP = 'q';
+constexpr const char DB_VBK_BLOCK = 'W';
+constexpr const char DB_VBK_TIP = 'w';
+constexpr const char DB_ALT_BLOCK = 'E';
+constexpr const char DB_ALT_TIP = 'e';
 
 template <typename BlockT>
-struct GenericBlockProvider : public altintegration::details::GenericBlockProvider<BlockT> {
-    using hash_t = typename BlockT::hash_t;
+std::pair<char, std::string> tip_key();
 
-    ~GenericBlockProvider() override = default;
+template <>
+inline std::pair<char, std::string> tip_key<VbkBlock>()
+{
+    return std::make_pair(DB_VBK_TIP, "vbktip");
+}
+template <>
+inline std::pair<char, std::string> tip_key<BtcBlock>()
+{
+    return std::make_pair(DB_BTC_TIP, "btctip");
+}
+template <>
+inline std::pair<char, std::string> tip_key<AltBlock>()
+{
+    return std::make_pair(DB_ALT_TIP, "alttip");
+}
 
-    GenericBlockProvider(CDBWrapper& db) : db_(db) {}
-
-    bool getTipHash(hash_t& out) const override
-    {
-        return db_.Read(tip_key<BlockT>(), out);
-    }
-
-    bool getBlock(const hash_t& hash, altintegration::BlockIndex<BlockT>& out) const override
-    {
-        return db_.Read(block_key<BlockT>(hash), out);
-    }
-
-    std::shared_ptr<altintegration::BlockIterator<BlockT>> getBlockIterator() const override
-    {
-        std::shared_ptr<CDBIterator> it(db_.NewIterator());
-        return std::make_shared<BlockIterator<BlockT>>(it);
-    }
-
-private:
-    CDBWrapper& db_;
-};
-
-} // namespace details
-
-struct BlockProvider : public altintegration::BlockProvider {
-    ~BlockProvider() override = default;
-
-    BlockProvider(CDBWrapper& db) : db_(db) {}
-
-    std::shared_ptr<altintegration::details::GenericBlockProvider<altintegration::AltBlock>>
-    getAltBlockProvider() const override
-    {
-        return std::make_shared<details::GenericBlockProvider<altintegration::AltBlock>>(db_);
-    }
-
-    std::shared_ptr<altintegration::details::GenericBlockProvider<altintegration::VbkBlock>>
-    getVbkBlockProvider() const override
-    {
-        return std::make_shared<details::GenericBlockProvider<altintegration::VbkBlock>>(db_);
-    }
-
-    std::shared_ptr<altintegration::details::GenericBlockProvider<altintegration::BtcBlock>>
-    getBtcBlockProvider() const override
-    {
-        return std::make_shared<details::GenericBlockProvider<altintegration::BtcBlock>>(db_);
-    }
+template <typename BlockT>
+std::pair<char, typename BlockT::hash_t> block_key(const typename BlockT::hash_t& hash);
 
 
-private:
-    CDBWrapper& db_;
-};
+template <>
+inline std::pair<char, typename BtcBlock::hash_t> block_key<BtcBlock>(const typename BtcBlock::hash_t& hash)
+{
+    return std::make_pair(DB_BTC_BLOCK, hash);
+}
 
-} // namespace VeriBlock
+template <>
+inline std::pair<char, typename VbkBlock::hash_t> block_key<VbkBlock>(const typename VbkBlock::hash_t& hash)
+{
+    return std::make_pair(DB_VBK_BLOCK, hash);
+}
 
-#endif
-```
-[<font style="color: red"> src/vbk/adaptors/block_iterator.hpp </font>]
-```
-// Copyright (c) 2019-2020 Xenios SEZC
-// https://www.veriblock.org
-// Distributed under the MIT software license, see the accompanying
-// file LICENSE or http://www.opensource.org/licenses/mit-license.php.
+template <>
+inline std::pair<char, typename AltBlock::hash_t> block_key<AltBlock>(const typename AltBlock::hash_t& hash)
+{
+    return std::make_pair(DB_ALT_BLOCK, hash);
+}
 
-#ifndef INTEGRATION_REFERENCE_BITC_BLOCK_HASH_ITERATOR_HPP
-#define INTEGRATION_REFERENCE_BITC_BLOCK_HASH_ITERATOR_HPP
-
-#include <dbwrapper.h>
-
-namespace VeriBlock {
 
 template <typename BlockT>
 struct BlockIterator : public altintegration::BlockIterator<BlockT> {
@@ -1485,14 +1447,14 @@ struct BlockIterator : public altintegration::BlockIterator<BlockT> {
 
     ~BlockIterator() override = default;
 
-    BlockIterator(std::shared_ptr<CDBIterator> iter) : iter_(iter) {}
+    BlockIterator(std::shared_ptr<CDBIterator> iter) : iter_(std::move(iter)) {}
 
     void next() override
     {
         iter_->Next();
     }
 
-    bool value(altintegration::BlockIndex<BlockT>& out) const override
+    bool value(BlockIndex<BlockT>& out) const override
     {
         return iter_->GetValue(out);
     }
@@ -1524,128 +1486,93 @@ private:
     std::shared_ptr<CDBIterator> iter_;
 };
 
-} // namespace VeriBlock
+struct BlockReader : public altintegration::BlockReader {
+    ~BlockReader() override = default;
 
+    BlockReader(CDBWrapper& db) : db(&db) {}
 
-#endif
-```
-[<font style="color: red"> src/vbk/adaptors/block_batch_adaptor.hpp </font>]
-```
-// Copyright (c) 2019-2020 Xenios SEZC
-// https://www.veriblock.org
-// Distributed under the MIT software license, see the accompanying
-// file LICENSE or http://www.opensource.org/licenses/mit-license.php.
-
-#ifndef INTEGRATION_REFERENCE_BITC_BLOCK_BATCH_ADAPTOR_HPP
-#define INTEGRATION_REFERENCE_BITC_BLOCK_BATCH_ADAPTOR_HPP
-
-#include <dbwrapper.h>
-#include <veriblock/storage/block_batch_adaptor.hpp>
-
-namespace VeriBlock {
-
-constexpr const char DB_BTC_BLOCK = 'Q';
-constexpr const char DB_BTC_TIP = 'q';
-constexpr const char DB_VBK_BLOCK = 'W';
-constexpr const char DB_VBK_TIP = 'w';
-constexpr const char DB_ALT_BLOCK = 'E';
-constexpr const char DB_ALT_TIP = 'e';
-
-template <typename BlockT>
-std::pair<char, std::string> tip_key();
-
-template <>
-inline std::pair<char, std::string> tip_key<altintegration::VbkBlock>()
-{
-    return std::make_pair(DB_VBK_TIP, "vbktip");
-}
-template <>
-inline std::pair<char, std::string> tip_key<altintegration::BtcBlock>()
-{
-    return std::make_pair(DB_BTC_TIP, "btctip");
-}
-template <>
-inline std::pair<char, std::string> tip_key<altintegration::AltBlock>()
-{
-    return std::make_pair(DB_ALT_TIP, "alttip");
-}
-
-template <typename BlockT>
-std::pair<char, typename BlockT::hash_t> block_key(const typename BlockT::hash_t& hash);
-
-
-template <>
-inline std::pair<char, typename altintegration::BtcBlock::hash_t> block_key<altintegration::BtcBlock>(const typename altintegration::BtcBlock::hash_t& hash)
-{
-    return std::make_pair(DB_BTC_BLOCK, hash);
-}
-
-template <>
-inline std::pair<char, typename altintegration::VbkBlock::hash_t> block_key<altintegration::VbkBlock>(const typename altintegration::VbkBlock::hash_t& hash)
-{
-    return std::make_pair(DB_VBK_BLOCK, hash);
-}
-
-template <>
-inline std::pair<char, typename altintegration::AltBlock::hash_t> block_key<altintegration::AltBlock>(const typename altintegration::AltBlock::hash_t& hash)
-{
-    return std::make_pair(DB_ALT_BLOCK, hash);
-}
-
-
-struct BlockBatchAdaptor : public altintegration::BlockBatchAdaptor {
-    ~BlockBatchAdaptor() override = default;
-
-    explicit BlockBatchAdaptor(CDBBatch& batch) : batch_(batch)
+    bool getAltTip(AltBlock::hash_t& out) const override
     {
+        return db->Read(tip_key<AltBlock>(), out);
+    }
+    bool getVbkTip(VbkBlock::hash_t& out) const override
+    {
+        return db->Read(tip_key<VbkBlock>(), out);
+    }
+    bool getBtcTip(BtcBlock::hash_t& out) const override
+    {
+        return db->Read(tip_key<BtcBlock>(), out);
     }
 
-    bool writeBlock(const altintegration::BlockIndex<altintegration::BtcBlock>& value) override
+    std::shared_ptr<altintegration::BlockIterator<AltBlock>> getAltBlockIterator() const override
     {
-        batch_.Write(block_key<altintegration::BtcBlock>(getHash(value)), value);
-        return true;
-    };
-    bool writeBlock(const altintegration::BlockIndex<altintegration::VbkBlock>& value) override
+        std::shared_ptr<CDBIterator> it(db->NewIterator());
+        return std::make_shared<BlockIterator<AltBlock>>(it);
+    }
+    std::shared_ptr<altintegration::BlockIterator<VbkBlock>> getVbkBlockIterator() const override
     {
-        batch_.Write(block_key<altintegration::VbkBlock>(getHash(value)), value);
-        return true;
-    };
-    bool writeBlock(const altintegration::BlockIndex<altintegration::AltBlock>& value) override
+        std::shared_ptr<CDBIterator> it(db->NewIterator());
+        return std::make_shared<BlockIterator<VbkBlock>>(it);
+    }
+    std::shared_ptr<altintegration::BlockIterator<BtcBlock>> getBtcBlockIterator() const override
     {
-        batch_.Write(block_key<altintegration::AltBlock>(getHash(value)), value);
-        return true;
-    };
-
-    bool writeTip(const altintegration::BlockIndex<altintegration::BtcBlock>& value) override
-    {
-        batch_.Write(tip_key<altintegration::BtcBlock>(), getHash(value));
-        return true;
-    };
-    bool writeTip(const altintegration::BlockIndex<altintegration::VbkBlock>& value) override
-    {
-        batch_.Write(tip_key<altintegration::VbkBlock>(), getHash(value));
-        return true;
-    };
-    bool writeTip(const altintegration::BlockIndex<altintegration::AltBlock>& value) override
-    {
-        batch_.Write(tip_key<altintegration::AltBlock>(), getHash(value));
-        return true;
-    };
-
+        std::shared_ptr<CDBIterator> it(db->NewIterator());
+        return std::make_shared<BlockIterator<BtcBlock>>(it);
+    }
 
 private:
-    CDBBatch& batch_;
+    CDBWrapper* db{nullptr};
+};
 
-    template <typename T>
-    typename T::hash_t getHash(const T& c)
+
+struct BlockBatch : public altintegration::BlockBatch {
+    ~BlockBatch() override = default;
+
+    BlockBatch(CDBBatch& batch) : batch_(&batch) {}
+
+    void writeBlock(const BlockIndex<AltBlock>& value) override
     {
-        return c.getHash();
+        auto key = block_key<AltBlock>(value.getHash());
+        batch_->Write(key, value);
     }
+
+    void writeBlock(const BlockIndex<VbkBlock>& value) override
+    {
+        auto key = block_key<VbkBlock>(value.getHash());
+        batch_->Write(key, value);
+    }
+
+    void writeBlock(const BlockIndex<BtcBlock>& value) override
+    {
+        auto key = block_key<BtcBlock>(value.getHash());
+        batch_->Write(key, value);
+    }
+
+    void writeTip(const BlockIndex<AltBlock>& value) override
+    {
+        auto hash = value.getHash();
+        batch_->Write(tip_key<AltBlock>(), hash);
+    }
+
+    void writeTip(const BlockIndex<VbkBlock>& value) override
+    {
+        auto hash = value.getHash();
+        batch_->Write(tip_key<VbkBlock>(), hash);
+    }
+
+    void writeTip(const BlockIndex<BtcBlock>& value) override
+    {
+        auto hash = value.getHash();
+        batch_->Write(tip_key<BtcBlock>(), hash);
+    }
+
+private:
+    CDBBatch* batch_{nullptr};
 };
 
 } // namespace VeriBlock
 
-#endif //INTEGRATION_REFERENCE_BITC_BLOCK_BATCH_ADAPTOR_HPP
+#endif
 ```
 
 ### Create wrappers for such entities.
@@ -1660,26 +1587,23 @@ private:
 #ifndef BITCASH_SRC_VBK_POP_SERVICE_HPP
 #define BITCASH_SRC_VBK_POP_SERVICE_HPP
 
-#include <vbk/adaptors/block_batch_adaptor.hpp>
-#include <vbk/adaptors/payloads_provider.hpp>
 #include <vbk/pop_common.hpp>
 #include <vbk/util.hpp>
 
 class CBlockTreeDB;
+class CDBBatch;
 class CDBIterator;
 class CDBWrapper;
 
 namespace VeriBlock {
 
-void SetPop(CDBWrapper& db);
-
-PayloadsProvider& GetPayloadsProvider();
+void InitPopContext(CDBWrapper& db);
 
 //! returns true if all tips are stored in database, false otherwise
 bool hasPopData(CBlockTreeDB& db);
 altintegration::PopData getPopData();
-void saveTrees(altintegration::BlockBatchAdaptor& batch);
-bool loadTrees(CDBIterator& iter);
+void saveTrees(CDBBatch* batch);
+bool loadTrees(CDBWrapper& db);
 
 } // namespace VeriBlock
 
@@ -1703,45 +1627,36 @@ bool loadTrees(CDBIterator& iter);
 #include <boost/thread/interruption.hpp>
 #endif //WIN32
 
+#include <vbk/adaptors/block_provider.hpp>
+#include <vbk/adaptors/payloads_provider.hpp>
 #include <vbk/pop_common.hpp>
 #include <vbk/pop_service.hpp>
 
 namespace VeriBlock {
 
-static std::shared_ptr<PayloadsProvider> payloads_provider = nullptr;
-static std::shared_ptr<BlockProvider> block_provider = nullptr;
-
-void SetPop(CDBWrapper& db)
+void InitPopContext(CDBWrapper& db)
 {
-    payloads_provider = std::make_shared<PayloadsProvider>(db);
-    block_provider = std::make_shared<BlockProvider>(db);
-
-    SetPop(std::shared_ptr<altintegration::PayloadsProvider>(payloads_provider),
-        std::shared_ptr<altintegration::BlockProvider>(block_provider));
-}
-
-PayloadsProvider& GetPayloadsProvider()
-{
-    return *payloads_provider;
+    auto payloads_provider = std::make_shared<PayloadsProvider>(db);
+    SetPop(payloads_provider);
 }
 
 bool hasPopData(CBlockTreeDB& db)
 {
-    return db.Exists(tip_key<altintegration::BtcBlock>()) && db.Exists(tip_key<altintegration::VbkBlock>()) &
+    return db.Exists(tip_key<altintegration::BtcBlock>()) && db.Exists(tip_key<altintegration::VbkBlock>()) & db.Exists(tip_key<altintegration::AltBlock>());
 }
 
-void saveTrees(altintegration::BlockBatchAdaptor& batch)
+void saveTrees(CDBBatch* batch)
 {
     AssertLockHeld(cs_main);
-    altintegration::SaveAllTrees(*GetPop().altTree, batch);
+    VeriBlock::BlockBatch b(*batch);
+    altintegration::SaveAllTrees(*GetPop().altTree, b);
 }
-
-bool loadTrees(CDBIterator& iter)
+bool loadTrees(CDBWrapper& db)
 {
-    auto& pop = GetPop();
     altintegration::ValidationState state;
 
-    if (!altintegration::LoadAllTrees(pop, state)) {
+    BlockReader reader(db);
+    if (!altintegration::LoadAllTrees(GetPop(), reader, state)) {
         return error("%s: failed to load trees %s", __func__, state.toString());
     }
 
@@ -1777,7 +1692,7 @@ _method AppInitMain_
                  pblocktree.reset();
                  pblocktree.reset(new CBlockTreeDB(nBlockTreeDBCache, false, fReset));
 +                // VeriBlock
-+                VeriBlock::SetPop(*pblocktree);
++                VeriBlock::InitPopContext(*pblocktree);
 
                  if (fReset) {
                      pblocktree->WriteReindexing(true);
@@ -1797,8 +1712,7 @@ _method  CBlockTreeDB::WriteBatchSync_
      }
 +
 +    // VeribBlock: write BTC/VBK/ALT blocks
-+    auto adaptor = VeriBlock::BlockBatchAdaptor(batch);
-+    VeriBlock::saveTrees(adaptor);
++    VeriBlock::saveTrees(&batch);
      return WriteBatch(batch, true);
 ```
 [<font style="color: red"> src/validation.cpp </font>]
@@ -1824,17 +1738,13 @@ _method CChainState::LoadBlockIndex_
      boost::this_thread::interruption_point();
 ```
 ```diff
-             pindexBestHeader = pindex;
-     }
-
 +    // VeriBlock
 +    // get best chain from ALT tree and update vBTC`s best chain
 +    {
 +        AssertLockHeld(cs_main);
 +
 +        // load blocks
-+        std::unique_ptr<CDBIterator> pcursor(blocktree.NewIterator());
-+        if(!VeriBlock::loadTrees(*pcursor)) {
++        if(!VeriBlock::loadTrees(blocktree)) {
 +            return false;
 +        }
 +
@@ -1876,7 +1786,7 @@ _method TestingSetup::TestingSetup_
 ```diff
          pblocktree.reset(new CBlockTreeDB(1 << 20, true));
 +        // VeriBlock
-+        VeriBlock::SetPop(*pblocktree);
++        VeriBlock::InitPopContext(*pblocktree);
 +
          pcoinsdbview.reset(new CCoinsViewDB(1 << 23, true));
 ```
@@ -2082,6 +1992,7 @@ setState() - changes the state of the VeriBlock AltTree as if the provided altch
 +class CBlock;
 +class CScript;
  class CBlockTreeDB;
+ class CDBBatch;
  class CDBIterator;
  class CDBWrapper;
 +class CChainParams;
@@ -2092,10 +2003,10 @@ setState() - changes the state of the VeriBlock AltTree as if the provided altch
 +using BlockBytes = std::vector<uint8_t>;
 +using PoPRewards = std::map<CScript, CAmount>;
 +
- void SetPop(CDBWrapper& db);
+ void InitPopContext(CDBWrapper& db);
 ```
 ```diff
- bool loadTrees(CDBIterator& iter);
+ bool loadTrees(CDBWrapper& db);
 
 +//! alttree methods
 +bool acceptBlock(const CBlockIndex& indexNew, CValidationState& state);
@@ -2135,28 +2046,10 @@ setState() - changes the state of the VeriBlock AltTree as if the provided altch
 +    return true;
 +}
 +
-+bool popDataStatelessValidation(const altintegration::PopData& popData, altintegration::ValidationState& state)
++bool popdataStatelessValidation(const altintegration::PopData& popData, altintegration::ValidationState& state)
 +{
-+    auto& config = *GetPop().config;
-+    for (const auto& b : popData.context) {
-+        if (!altintegration::checkBlock(b, state, *config.vbk.params)) {
-+            return state.Invalid("pop-vbkblock-statelessly-invalid");
-+        }
-+    }
-+
-+    for (const auto& vtb : popData.vtbs) {
-+        if (!altintegration::checkVTB(vtb, state, *config.btc.params)) {
-+            return state.Invalid("pop-vtb-statelessly-invalid");
-+        }
-+    }
-+
-+    for (const auto& atv : popData.atvs) {
-+        if (!altintegration::checkATV(atv, state, *config.alt)) {
-+            return state.Invalid("pop-atv-statelessly-invalid");
-+        }
-+    }
-+
-+    return true;
++    auto& pop = GetPop();
++    return altintegration::checkPopData(*pop.popValidator, popData, state);
 +}
 +
 +bool addAllBlockPayloads(const CBlock& block) EXCLUSIVE_LOCKS_REQUIRED(cs_main)
@@ -2167,23 +2060,18 @@ setState() - changes the state of the VeriBlock AltTree as if the provided altch
 +    auto* index = LookupBlockIndex(hash);
 +
 +    if (index->nHeight == bootstrapBlockHeight) {
-+        // skip bootstrap block
++        // skip bootstrap block block
 +        return true;
 +    }
 +
 +    altintegration::ValidationState instate;
 +
-+    if (!checkPopDataSize(block.popData, instate) || !popDataStatelessValidation(block.popData, instate)) {
-+        return error("[%s] block %s is not accepted because popData is invalid: %s",
-+                     __func__,
-+                     hash.ToString(),
-+                     instate.toString());
++    if (!popdataStatelessValidation(block.popData, instate)) {
++        return error("[%s] block %s is not accepted because popData is invalid: %s", __func__, block.GetHash().ToString(),
++            instate.toString());
 +    }
 +
-+    auto& provider = GetPayloadsProvider();
-+    provider.write(block.popData);
-+
-+    GetPop().altTree->acceptBlock(hash.asVector(), block.popData);
++    GetPop().altTree->acceptBlock(block.GetHash().asVector(), block.popData);
 +
 +    return true;
 +}
@@ -2540,7 +2428,7 @@ static const std::string defaultVtbEncoded =
 #include <vbk/util.hpp>
 #include <veriblock/alt-util.hpp>
 #include <veriblock/mempool.hpp>
-#include <veriblock/mock_miner_2.hpp>
+#include <veriblock/mock_miner.hpp>
 #include <veriblock/pop_context.hpp>
 #include <consensus/merkle.h>
 
@@ -2548,7 +2436,7 @@ static const std::string defaultVtbEncoded =
 
 using altintegration::ATV;
 using altintegration::BtcBlock;
-using altintegration::MockMiner2;
+using altintegration::MockMiner;
 using altintegration::PublicationData;
 using altintegration::VbkBlock;
 using altintegration::VTB;
@@ -2564,7 +2452,7 @@ struct TestLogger : public altintegration::Logger {
 
 struct E2eFixture : public TestChain100Setup {
     CScript cbKey = CScript() << ToByteVector(coinbaseKey.GetPubKey()) << OP_CHECKSIG;
-    MockMiner2 popminer;
+    MockMiner popminer;
     altintegration::ValidationState state;
     altintegration::PopContext* pop;
     std::vector<uint8_t> defaultPayoutInfo = {1, 2, 3, 4, 5};
@@ -2627,8 +2515,7 @@ struct E2eFixture : public TestChain100Setup {
         }
 
         auto publicationdata = createPublicationData(endorsed, payoutInfo);
-        auto vbktx = popminer.createVbkTxEndorsingAltBlock(publicationdata);
-        auto atv = popminer.applyATV(vbktx, state);
+        auto atv = popminer.endorseAltBlock(publicationdata);
         BOOST_CHECK(state.IsValid());
         return atv;
     }
@@ -2711,14 +2598,7 @@ struct E2eFixture : public TestChain100Setup {
             throw std::logic_error("can not find VBK block at height " + std::to_string(height));
         }
 
-        auto btctx = popminer.createBtcTxEndorsingVbkBlock(endorsed->getHeader());
-        auto* btccontaining = popminer.mineBtcBlocks(1);
-        auto vbktx = popminer.createVbkPopTxEndorsingVbkBlock(btccontaining->getHeader(), btctx, endorsed->getHeader(), getLastKnownBTCblock());
-        auto* vbkcontaining = popminer.mineVbkBlocks(1);
-
-        auto vtbs = popminer.vbkPayloads[vbkcontaining->getHash()];
-        BOOST_CHECK(vtbs.size() == 1);
-        return vtbs[0];
+        return popminer.endorseVbkBlock(endorsed->getHeader());
     }
 
     PublicationData createPublicationData(CBlockIndex* endorsed, const std::vector<uint8_t>& payoutInfo)
@@ -4056,10 +3936,10 @@ _method TestChain100Setup::CreateAndProcessBlock_
 
 #include <vbk/pop_service.hpp>
 #include <vbk/test/util/e2e_fixture.hpp>
-#include <veriblock/mock_miner_2.hpp>
+#include <veriblock/mock_miner.hpp>
 
 using altintegration::BtcBlock;
-using altintegration::MockMiner2;
+using altintegration::MockMiner;
 using altintegration::PublicationData;
 using altintegration::VbkBlock;
 using altintegration::VTB;
@@ -4967,10 +4847,9 @@ _method PeerLogicValidation::SendMessages_
  #include <vbk/pop_common.hpp>
  #include <vbk/pop_service.hpp>
 ```
-_method SetPop_
+_method InitPopContext_
 ```diff
-     SetPop(std::shared_ptr<altintegration::PayloadsProvider>(payloads_provider),
-         std::shared_ptr<altintegration::BlockProvider>(block_provider));
+     SetPop(payloads_provider);
 +
 +    auto& app = GetPop();
 +    app.mempool->onAccepted<altintegration::ATV>(VeriBlock::p2p::offerPopDataToAllNodes<altintegration::ATV>);

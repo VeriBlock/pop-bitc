@@ -17,6 +17,7 @@ import time
 
 from .authproxy import JSONRPCException
 from . import coverage
+from .pop import sync_pop_mempools, sync_pop_tips, assert_pop_state_equal
 from .test_node import TestNode
 from .util import (
     MAX_NODES,
@@ -329,13 +330,27 @@ class BitcashTestFramework(metaclass=BitcashTestMetaClass):
         connect_nodes_bi(self.nodes, 1, 2)
         self.sync_all()
 
-    def sync_all(self, node_groups=None):
+    def sync_blocks(self, nodes=None, **kwargs):
+        sync_blocks(nodes or self.nodes, **kwargs)
+
+    def sync_mempools(self, nodes=None, **kwargs):
+        sync_mempools(nodes or self.nodes, **kwargs)
+
+    def sync_pop_mempools(self, nodes=None, **kwargs):
+        sync_pop_mempools(nodes or self.nodes, **kwargs)
+
+    def sync_pop_tips(self, nodes=None, **kwargs):
+        sync_pop_tips(nodes or self.nodes, **kwargs)
+
+    def sync_all(self, node_groups=None, **kwargs):
         if not node_groups:
             node_groups = [self.nodes]
 
         for group in node_groups:
-            sync_blocks(group)
-            sync_mempools(group)
+            self.sync_blocks(group, **kwargs)
+            self.sync_mempools(group, **kwargs)
+            self.sync_pop_mempools(group, **kwargs)
+            self.sync_pop_tips(group, **kwargs)
 
     def enable_mocktime(self):
         """Enable mocktime for the script.

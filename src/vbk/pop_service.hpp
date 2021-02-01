@@ -7,8 +7,6 @@
 #define BITCASH_SRC_VBK_POP_SERVICE_HPP
 
 #include <consensus/validation.h>
-#include <vbk/adaptors/block_batch_adaptor.hpp>
-#include <vbk/adaptors/payloads_provider.hpp>
 #include <vbk/pop_common.hpp>
 #include <vbk/util.hpp>
 
@@ -18,6 +16,7 @@ class CBlockIndex;
 class CBlock;
 class CScript;
 class CBlockTreeDB;
+class CDBBatch;
 class CDBIterator;
 class CDBWrapper;
 class CChainParams;
@@ -28,15 +27,13 @@ namespace VeriBlock {
 using BlockBytes = std::vector<uint8_t>;
 using PoPRewards = std::map<CScript, CAmount>;
 
-void SetPop(CDBWrapper& db);
-
-PayloadsProvider& GetPayloadsProvider();
+void InitPopContext(CDBWrapper& db);
 
 //! returns true if all tips are stored in database, false otherwise
 bool hasPopData(CBlockTreeDB& db);
 altintegration::PopData getPopData();
-void saveTrees(altintegration::BlockBatchAdaptor& batch);
-bool loadTrees(CDBIterator& iter);
+void saveTrees(CDBBatch* batch);
+bool loadTrees(CDBWrapper& db);
 
 //! alttree methods
 bool acceptBlock(const CBlockIndex& indexNew, CValidationState& state);

@@ -1478,7 +1478,7 @@ bool AppInitMain(bool passwordsetted)
                 pblocktree.reset();
                 pblocktree.reset(new CBlockTreeDB(nBlockTreeDBCache, false, fReset));
                 // VeriBlock
-                VeriBlock::SetPop(*pblocktree);
+                VeriBlock::InitPopContext(*pblocktree);
 
                 if (fReset) {
                     pblocktree->WriteReindexing(true);

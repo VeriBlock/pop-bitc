@@ -4958,8 +4958,7 @@ bool CChainState::LoadBlockIndex(const Consensus::Params& consensus_params, CBlo
         AssertLockHeld(cs_main);
 
         // load blocks
-        std::unique_ptr<CDBIterator> pcursor(blocktree.NewIterator());
-        if(!VeriBlock::loadTrees(*pcursor)) {
+        if(!VeriBlock::loadTrees(blocktree)) {
             return false;
         }
 

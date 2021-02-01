@@ -16,8 +16,7 @@ constexpr const char DB_VBK_PREFIX = '^';
 constexpr const char DB_VTB_PREFIX = '<';
 constexpr const char DB_ATV_PREFIX = '>';
 
-struct PayloadsProvider : public altintegration::PayloadsProvider {
-    using base = altintegration::PayloadsProvider;
+struct PayloadsProvider : public altintegration::PayloadsStorage {
     using key_t = std::vector<uint8_t>;
     using value_t = std::vector<uint8_t>;
 
@@ -25,16 +24,16 @@ struct PayloadsProvider : public altintegration::PayloadsProvider {
 
     PayloadsProvider(CDBWrapper& db) : db_(db) {}
 
-    void write(const altintegration::PopData& pop)
+    void writePayloads(const altintegration::PopData& payloads) override
     {
         auto batch = CDBBatch(db_);
-        for (const auto& b : pop.context) {
+        for (const auto& b : payloads.context) {
             batch.Write(std::make_pair(DB_VBK_PREFIX, b.getId()), b);
         }
-        for (const auto& b : pop.vtbs) {
+        for (const auto& b : payloads.vtbs) {
             batch.Write(std::make_pair(DB_VTB_PREFIX, b.getId()), b);
         }
-        for (const auto& b : pop.atvs) {
+        for (const auto& b : payloads.atvs) {
             batch.Write(std::make_pair(DB_ATV_PREFIX, b.getId()), b);
         }
         bool ret = db_.WriteBatch(batch, true);
@@ -43,44 +42,33 @@ struct PayloadsProvider : public altintegration::PayloadsProvider {
     }
 
     template <typename pop_t>
-    bool getPayloads(char dbPrefix, const std::vector<typename pop_t::id_t>& ids, std::vector<pop_t>& out, altintegration::ValidationState& state)
+    bool getPayloads(char dbPrefix, const typename pop_t::id_t& id, pop_t& out, altintegration::ValidationState& state)
     {
         auto& mempool = *GetPop().mempool;
-        out.reserve(ids.size());
-        for (size_t i = 0; i < ids.size(); i++) {
-            pop_t value;
-            const auto* memval = mempool.get<pop_t>(ids[i]);
-            if (memval != nullptr) {
-                value = *memval;
-            } else {
-                if (!db_.Read(std::make_pair(dbPrefix, ids[i]), value)) {
-                    return state.Invalid(pop_t::name() + "-read-error", i);
-                }
+        const auto* memval = mempool.template get<pop_t>(id);
+        if (memval != nullptr) {
+            out = *memval;
+        } else {
+            if (!db_.Read(std::make_pair(dbPrefix, id), out)) {
+                return state.Invalid(pop_t::name() + "-read-error");
             }
-            out.push_back(value);
         }
         return true;
     }
 
-    bool getATVs(const std::vector<altintegration::ATV::id_t>& ids,
-        std::vector<altintegration::ATV>& out,
-        altintegration::ValidationState& state) override
+    bool getATV(const altintegration::ATV::id_t& id, altintegration::ATV& out, altintegration::ValidationState& state) override
     {
-        return getPayloads(DB_ATV_PREFIX, ids, out, state);
+        return getPayloads(DB_ATV_PREFIX, id, out, state);
     }
 
-    bool getVTBs(const std::vector<altintegration::VTB::id_t>& ids,
-        std::vector<altintegration::VTB>& out,
-        altintegration::ValidationState& state) override
+    bool getVTB(const altintegration::VTB::id_t& id, altintegration::VTB& out, altintegration::ValidationState& state) override
     {
-        return getPayloads(DB_VTB_PREFIX, ids, out, state);
+        return getPayloads(DB_VTB_PREFIX, id, out, state);
     }
 
-    bool getVBKs(const std::vector<altintegration::VbkBlock::id_t>& ids,
-        std::vector<altintegration::VbkBlock>& out,
-        altintegration::ValidationState& state) override
+    bool getVBK(const altintegration::VbkBlock::id_t& id, altintegration::VbkBlock& out, altintegration::ValidationState& state) override
     {
-        return getPayloads(DB_VBK_PREFIX, ids, out, state);
+        return getPayloads(DB_VBK_PREFIX, id, out, state);
     }
 
 private:

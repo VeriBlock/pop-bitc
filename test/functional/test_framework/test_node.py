@@ -28,7 +28,7 @@ from .util import (
 # For Python 3.4 compatibility
 JSONDecodeError = getattr(json, "JSONDecodeError", ValueError)
 
-BITCASHD_PROC_WAIT_TIMEOUT = 60
+BITCASHD_PROC_WAIT_TIMEOUT = 10
 
 
 class FailedToStartError(Exception):
