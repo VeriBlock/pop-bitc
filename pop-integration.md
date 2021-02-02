@@ -6538,3 +6538,7 @@ libbitcash_server_a_SOURCES = \
 +  vbk/test/unit/forkresolution_tests.cpp \
 +  vbk/test/unit/rpc_service_tests.cpp
 ```
+
+## Add VBK and BTC bootstrap blocks into [src/vbk/bootstraps.cpp].
+
+## Add functional tests for POP integration testing.
