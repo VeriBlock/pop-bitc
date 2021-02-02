@@ -53,6 +53,9 @@ void addPopPayoutsIntoCoinbaseTx(CMutableTransaction& coinbaseTx, const CBlockIn
 bool checkCoinbaseTxWithPopRewards(const CTransaction& tx, const CAmount& nFees, const CBlockIndex& pindexPrev, const CChainParams& params, CValidationState& state);
 CAmount getCoinbaseSubsidy(const CAmount& subsidy, int32_t height, const CChainParams& params);
 
+CBlockIndex* compareTipToBlock(CBlockIndex* candidate);
+int compareForks(const CBlockIndex& left, const CBlockIndex& right);
+
 } // namespace VeriBlock
 
 #endif //BITCASH_SRC_VBK_POP_SERVICE_HPP

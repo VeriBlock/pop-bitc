@@ -155,14 +155,12 @@ bool processPopData(CNode* node, CDataStream& vRecv, altintegration::MemPool& po
     }
 
     altintegration::ValidationState state;
-    LogPrint(BCLog::NET, "submitting %s to pop mempool\n", pop_t::name());
     auto result = pop_mempool.submit(data, state);
     if (!result && result.status == altintegration::MemPool::FAILED_STATELESS) {
         LogPrint(BCLog::NET, "peer %d sent statelessly invalid pop data: %s\n", node->GetId(), state.toString());
         Misbehaving(node->GetId(), 20, strprintf("statelessly invalid pop data getdata, reason: %s", state.toString()));
         return false;
     }
-    LogPrint(BCLog::NET, "submit result is %s\n", state.toString());
 
     return true;
 }

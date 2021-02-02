@@ -158,6 +158,11 @@ struct BlockHasher
     size_t operator()(const uint256& hash) const { return hash.GetCheapHash(); }
 };
 
+struct CBlockIndexWorkComparator
+{
+    bool operator()(const CBlockIndex *pa, const CBlockIndex *pb) const;
+};
+
 extern CScript COINBASE_FLAGS;
 extern CCriticalSection cs_main;
 extern CBlockPolicyEstimator feeEstimator;
