@@ -961,7 +961,7 @@ void selectPopConfig(
         } else {
             popconfig.setVBK(vbkstart, parseBlocks(vbkblocks), param);
         }
-    } else if (btcnet == "regtest") {
+    } else if (vbknet == "regtest") {
         auto param = std::make_shared<altintegration::VbkChainParamsRegTest>();
         if (popautoconfig) {
             popconfig.setVBK(0, {}, param);
@@ -1135,7 +1135,7 @@ _method AppInit_
          try {
              SelectParams(gArgs.GetChainName());
 +            // VeriBlock
-+            VeriBlock::selectPopConfig(gArgs);
++            VeriBlock::selectPopConfig(gArgs, gArgs.GetChainName(), gArgs.GetChainName());
          } catch (const std::exception& e) {
 ```
 
@@ -1152,7 +1152,7 @@ _method AppInitRawTx_
      try {
          SelectParams(gArgs.GetChainName());
 +        // VeriBlock
-+        VeriBlock::selectPopConfig(gArgs);
++        VeriBlock::selectPopConfig(gArgs, gArgs.GetChainName(), gArgs.GetChainName());
      } catch (const std::exception& e) {
 ```
 
@@ -5799,13 +5799,32 @@ _method getblock_
 ```
 _method SoftForkMajorityDesc_
 ```diff
+     bool activated = false;
++    int height = -1;
+     switch(version)
+     {
+:
+         case 2:
+             activated = pindex->nHeight >= consensusParams.BIP34Height;
++            height = consensusParams.BIP34Height;
+             break;
+         case 3:
+             activated = pindex->nHeight >= consensusParams.BIP66Height;
++            height = consensusParams.BIP66Height;
+             break;
+         case 4:
              activated = pindex->nHeight >= consensusParams.BIP65Height;
++            height = consensusParams.BIP65Height;
              break;
 +        case 5:
 +            activated = pindex->nHeight >= (int)consensusParams.VeriBlockPopSecurityHeight;
++            height = (int)consensusParams.VeriBlockPopSecurityHeight;
 +            break;
      }
      rv.pushKV("status", activated);
++    // VeriBlock: add fork activation height, for easier testing
++    rv.pushKV("height", height);
+     return rv;
 ```
 _method getblockchaininfo_
 ```diff

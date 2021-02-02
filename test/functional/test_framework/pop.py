@@ -173,7 +173,10 @@ def sync_pop_mempools(rpc_connections, *, wait=1, timeout=60, flush_scheduler=Tr
 
 def mine_until_pop_enabled(node):
     existing = node.getblockcount()
-    activate = node.getblockchaininfo()['softforks']['pop_security']['height']
+    activate = 0
+    for softfork in node.getblockchaininfo()['softforks']:
+        if softfork['id'] == 'pop_security':
+             activate = softfork['reject']['height']
     assert activate >= 0, "POP security should be able to activate"
     if existing < activate:
         assert activate - existing < 1000, "POP security activates on height {}. Will take too long to activate".format(

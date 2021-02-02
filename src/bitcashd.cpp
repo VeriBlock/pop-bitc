@@ -102,7 +102,7 @@ static bool AppInit(int argc, char* argv[])
         try {
             SelectParams(gArgs.GetChainName());
             // VeriBlock
-            VeriBlock::selectPopConfig(gArgs);
+            VeriBlock::selectPopConfig(gArgs, gArgs.GetChainName(), gArgs.GetChainName());
         } catch (const std::exception& e) {
             fprintf(stderr, "Error: %s\n", e.what());
             return false;
