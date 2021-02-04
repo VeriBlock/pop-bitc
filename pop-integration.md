@@ -46,6 +46,8 @@ cd build
 cmake .. -DCMAKE_INSTALL_PREFIX=/usr/local -DWITH_PYPOPTOOLS=ON
 make
 sudo make install
+cd ..
+sudo python3 setup.py install
 ```
 
 ## Add veriblock-pop-cpp library dependency

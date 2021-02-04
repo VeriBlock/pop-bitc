@@ -1394,7 +1394,7 @@ class msg_atv:
         return r
 
     def __repr__(self):
-        return "msg_offer_atv()"
+        return "msg_atv()"
 
 class msg_vtb:
     command = b'VTB'
@@ -1412,7 +1412,7 @@ class msg_vtb:
         return r
 
     def __repr__(self):
-        return "msg_offer_vtb()"
+        return "msg_vtb()"
 
 class msg_vbk:
     command = b'VBK'
@@ -1430,7 +1430,7 @@ class msg_vbk:
         return r
 
     def __repr__(self):
-        return "msg_offer_vbk()"
+        return "msg_vbk()"
 
 class msg_get_atv:
     command = b'gATV'

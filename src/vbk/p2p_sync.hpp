@@ -61,10 +61,8 @@ void offerPopDataToAllNodes(const pop_t& p)
     std::vector<std::vector<uint8_t>> p_id = {p.getId().asVector()};
     CConnman* connman = g_connman.get();
     const CNetMsgMaker msgMaker(PROTOCOL_VERSION);
-
     connman->ForEachNode([&connman, &msgMaker, &p_id](CNode* node) {
         LOCK(cs_main);
-
         auto& pop_state_map = getPopDataNodeState(node->GetId()).getMap<pop_t>();
         PopP2PState& pop_state = pop_state_map[p_id[0]];
         if (pop_state.offered_pop_data == 0) {

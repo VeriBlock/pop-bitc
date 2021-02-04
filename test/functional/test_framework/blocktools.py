@@ -28,6 +28,7 @@ from .messages import (
     sha256,
     uint256_from_str,
 )
+from .pop import ContextInfoContainer, PopMiningContext, calculateTopLevelMerkleRoot
 from .script import (
     CScript,
     OP_0,
@@ -43,8 +44,9 @@ from .util import assert_equal
 # From BIP141
 WITNESS_COMMITMENT_HEADER = b"\xaa\x21\xa9\xed"
 
-def create_block(hashprev, coinbase, ntime=None):
+def create_block(popctx: PopMiningContext, hashprev, coinbase, ntime=None):
     """Create a block (with regtest difficulty)."""
+    assert isinstance(popctx, PopMiningContext)
     block = CBlock()
     if ntime is None:
         import time
@@ -54,7 +56,12 @@ def create_block(hashprev, coinbase, ntime=None):
     block.hashPrevBlock = hashprev
     block.nBits = 0x207fffff  # difficulty retargeting is disabled in REGTEST chainparams
     block.vtx.append(coinbase)
-    block.hashMerkleRoot = block.calc_merkle_root()
+    block.hashMerkleRoot = calculateTopLevelMerkleRoot(
+        popctx=popctx,
+        txRoot=block.calc_merkle_root(),
+        prevHash=ser_uint256(hashprev)[::-1].hex(),
+        # leave PopData empty
+    )
     block.calc_sha256()
     return block
 

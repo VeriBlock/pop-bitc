@@ -2982,8 +2982,6 @@ bool static ProcessMessage(CNode* pfrom, const std::string& strCommand, CDataStr
         LogPrint(BCLog::NET, "Unknown command \"%s\" from peer=%d\n", SanitizeString(strCommand), pfrom->GetId());
     }
 
-
-
     return true;
 }
 
@@ -3030,8 +3028,9 @@ bool PeerLogicValidation::ProcessMessages(CNode* pfrom, std::atomic<bool>& inter
     //
     bool fMoreWork = false;
 
-    if (!pfrom->vRecvGetData.empty())
+    if (!pfrom->vRecvGetData.empty()) {
         ProcessGetData(pfrom, chainparams.GetConsensus(), connman, interruptMsgProc);
+    }
 
     if (pfrom->fDisconnect)
         return false;
@@ -3133,7 +3132,6 @@ bool PeerLogicValidation::ProcessMessages(CNode* pfrom, std::atomic<bool>& inter
 
     LOCK(cs_main);
     SendRejectsAndCheckIfBanned(pfrom, connman);
-
     return fMoreWork;
 }
 
@@ -3842,6 +3840,7 @@ bool PeerLogicValidation::SendMessages(CNode* pto, std::atomic<bool>& interruptM
             }
         }
     }
+
     return true;
 }
 

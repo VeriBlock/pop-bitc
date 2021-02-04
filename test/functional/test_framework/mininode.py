@@ -281,7 +281,6 @@ class P2PInterface(P2PConnection):
 
     def peer_connect(self, *args, services=NODE_NETWORK|NODE_WITNESS, send_version=True, **kwargs):
         super().peer_connect(*args, **kwargs)
-
         if send_version:
             # Send a version msg
             vt = msg_version()

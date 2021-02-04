@@ -143,9 +143,22 @@ BASE_SCRIPTS = [
     #'feature_blocksdir.py',
     #'feature_config_args.py',
     #'feature_help.py',
+    # VeriBlock tests
     'feature_pop_activate.py',
-    'feature_pop_fork_resolution.py',
     'feature_pop_e2e.py',
+    'feature_pop_fork_resolution.py',
+    'feature_pop_init.py',
+    'feature_pop_mempool_getpop.py',
+    'feature_pop_mempool_reorg.py',
+    'feature_pop_mempool_sync.py',
+    'feature_pop_merkleroot.py',
+    'feature_pop_p2p.py',
+    'feature_pop_p2p_ddos.py',
+    'feature_pop_params.py',
+    'feature_pop_payout.py',
+    'feature_pop_sync.py',
+    'feature_pop_verifydb.py',
+    ## end VeriBlock tests
     # Don't append tests at the end to avoid merge conflicts
     # Put them in a random line within the section that fits their approximate run-time
 ]
