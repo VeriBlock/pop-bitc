@@ -101,6 +101,8 @@ class PopPayouts(BitcashTestFramework):
         assert lastblock == 210, "calculation below are only valid for POP activation height = 210"
         pop_payout = float(outputs[1]['value'])
         self.log.info("pop payout {}".format(pop_payout))
+
+        # TODO: calculate the exact amount to match the resulting balance
         #assert balance == genesis_payout + first_interval_payout * 148 + second_interval_payout * 50 + second_interval_payout * .6 * 11 + pop_payout
         #self.log.warning("success! _case1_endorse_keystone_get_paid()")
         self.log.info("Should calculate the exact final balance")

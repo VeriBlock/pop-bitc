@@ -14,6 +14,7 @@ from test_framework.blocktools import (create_block, create_coinbase)
 from test_framework.mininode import (
     P2PInterface,
     msg_block,
+    network_thread_start,
 )
 from test_framework.pop_const import EMPTY_POPDATA_ROOT_V1
 from test_framework.test_framework import BitcashTestFramework
@@ -57,7 +58,9 @@ class PoPMerkleRootTest(BitcashTestFramework):
 
         """Main test logic"""
         lastblock = self.nodes[0].getblockcount()
-        self.nodes[0].add_p2p_connection(P2PInterface())
+        bn = self.nodes[0].add_p2p_connection(P2PInterface())
+        network_thread_start()
+        bn.wait_for_verack()
 
         # Generating a block on one of the nodes will get us out of IBD
         blockhashhex = self.nodes[0].generate(nblocks=1)[0]
@@ -80,6 +83,8 @@ class PoPMerkleRootTest(BitcashTestFramework):
         #self.nodes[0].waitforblockheight(lastblock + 2)
         #newbest = self.nodes[0].getbestblockhash()
         #assert newbest == block.hash, "bad tip. \n\tExpected : {}\n\tGot      : {}".format(block, newbest)
+
+        # TODO: implement block.solve() to enable this test
         self.log.info("This check is deactivated. block.solve() is not ported to support BitCash")
 
 

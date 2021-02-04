@@ -57,6 +57,7 @@ class PopPayouts(BitcashTestFramework):
                     }],
                     outputs=[{address: spend_amount},],
                 )
+                # TODO: make sure this call passes OK, without deadlock failure
                 rawtxfund = self.nodes[node_id].fundrawtransaction(rawtx)['hex']
                 tx = FromHex(CTransaction(), rawtxfund)
                 tx.nVersion = 2
