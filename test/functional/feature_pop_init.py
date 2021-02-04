@@ -65,7 +65,7 @@ class PopInit(BitcashTestFramework):
         self.restart_node(0)
         self.restart_node(1)
         self.log.info("nodes[0,1] restarted")
-        self.sync_all([self.nodes], timeout=30)
+        self.sync_all([self.nodes], timeout=60)
         self.log.info("nodes are in sync")
 
         bestblocks = [self.get_best_block(x) for x in self.nodes]
