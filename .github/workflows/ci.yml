@@ -49,10 +49,8 @@ jobs:
         run: echo Using veriblock-pop-cpp version $VERIBLOCK_POP_CPP_VERSION
       - name: install apt-get deps
         run: |
-          sudo add-apt-repository ppa:bitcoin/bitcoin
-          sudo apt-get update
           sudo apt-get install build-essential libtool autotools-dev automake pkg-config bsdmainutils ccache python3 python3-pip python3-setuptools python-setuptools
-          sudo apt-get install libssl-dev libevent-dev python3-zmq python3-dev libboost-python-dev libboost-system-dev libboost-filesystem-dev libboost-chrono-dev libboost-program-options-dev libboost-test-dev libboost-thread-dev libminiupnpc-dev libzmq3-dev libcurl4-openssl-dev libdb4.8-dev libdb4.8++-dev
+          sudo apt-get install libssl-dev libevent-dev python3-zmq python3-dev libboost-python-dev libboost-system-dev libboost-filesystem-dev libboost-chrono-dev libboost-program-options-dev libboost-test-dev libboost-thread-dev libminiupnpc-dev libzmq3-dev libcurl4-openssl-dev libdb-dev libdb++-dev
       - name: install veriblock-pop-cpp
         env:
           BUILD_TYPE: Release
@@ -78,6 +76,7 @@ jobs:
       - name: configure
         run: ./configure
           --without-gui
+          --with-incompatible-bdb
           --disable-bench
       - name: make
         run: make -j2 deploy
@@ -172,6 +171,7 @@ jobs:
         run: ./autogen.sh
       - name: configure
         run: CONFIG_SITE=$PWD/depends/x86_64-w64-mingw32/share/config.site ./configure --prefix=/
+          --with-incompatible-bdb
           --disable-bench
       - name: make
         run: make -j2
