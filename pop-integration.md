@@ -4362,15 +4362,25 @@ _method CChainState::ResetBlockFailureFlags_
 
 +    // VeriBlock
 +    PruneBlockIndexCandidates();
++    CBlockIndex *pindexFirstInvalid = nullptr;
 +
      // Remove the invalidity flag from all ancestors too.
      while (pindex != nullptr) {
          if (pindex->nStatus & BLOCK_FAILED_MASK) {
++            if (pindex->nStatus & BLOCK_FAILED_VALID) {
++                pindexFirstInvalid = pindex;
++            }
              pindex->nStatus &= ~BLOCK_FAILED_MASK;
              setDirtyBlockIndex.insert(pindex);
 +            m_failed_blocks.erase(pindex);
          }
          pindex = pindex->pprev;
+     }
+
++    //Remove the invalidity flag from all descendants of the first invalid ancestor block
++    if (pindexFirstInvalid != nullptr) {
++        ResetBlockFailureFlags(pindexFirstInvalid);
++    }
 ```
 _method CChainState::AddToBlockIndex_
 ```diff
@@ -4451,7 +4461,7 @@ _method CChainState::CheckBlockIndex_
          // Check whether this block is in mapBlocksUnlinked.
 ```
 
-### Add fork resolution unit test. Parts of the test are commented out due to the block revalidation bug and not implemented POP fork resolution.
+### Add fork resolution unit test.
 
 [<font style="color: red"> src/vbk/test/unit/forkresolution_tests.cpp </font>]
 ```
@@ -4563,8 +4573,7 @@ BOOST_FIXTURE_TEST_CASE(crossing_keystone_case_1_test, E2eFixture)
     BOOST_CHECK(pblock2 == chainActive.Tip());
 }
 
-//TODO: uncomment when block revalidation is fixed
-/*BOOST_FIXTURE_TEST_CASE(crossing_keystone_case_2_test, E2eFixture)
+BOOST_FIXTURE_TEST_CASE(crossing_keystone_case_2_test, E2eFixture)
 {
     CBlockIndex* pblock = chainActive.Tip();
     InvalidateTestBlock(pblock);
@@ -4585,7 +4594,7 @@ BOOST_FIXTURE_TEST_CASE(crossing_keystone_case_1_test, E2eFixture)
     ReconsiderTestBlock(pblock2);
 
     BOOST_CHECK(pblock3 == chainActive.Tip());
-}*/
+}
 
 BOOST_FIXTURE_TEST_CASE(crossing_keystone_case_3_test, E2eFixture)
 {
@@ -4654,8 +4663,7 @@ BOOST_FIXTURE_TEST_CASE(crossing_keystone_with_pop_invalid_1_test, E2eFixture)
     ReconsiderTestBlock(pblock);
 }
 
-//TODO: uncomment when POP fork resolution is done
-/*BOOST_FIXTURE_TEST_CASE(crossing_keystone_with_pop_1_test, E2eFixture)
+BOOST_FIXTURE_TEST_CASE(crossing_keystone_with_pop_1_test, E2eFixture)
 {
     int startHeight = chainActive.Tip()->nHeight;
 
@@ -4688,7 +4696,7 @@ BOOST_FIXTURE_TEST_CASE(crossing_keystone_with_pop_invalid_1_test, E2eFixture)
     ReconsiderTestBlock(forkBlockNext);
 
     BOOST_CHECK(expectedTip.GetHash() == chainActive.Tip()->GetBlockHash());
-}*/
+}
 
 BOOST_FIXTURE_TEST_CASE(crossing_keystone_without_pop_1_test, E2eFixture)
 {
