@@ -102,8 +102,7 @@ BOOST_FIXTURE_TEST_CASE(crossing_keystone_case_1_test, E2eFixture)
     BOOST_CHECK(pblock2 == chainActive.Tip());
 }
 
-//TODO: uncomment when block revalidation is fixed
-/*BOOST_FIXTURE_TEST_CASE(crossing_keystone_case_2_test, E2eFixture)
+BOOST_FIXTURE_TEST_CASE(crossing_keystone_case_2_test, E2eFixture)
 {
     CBlockIndex* pblock = chainActive.Tip();
     InvalidateTestBlock(pblock);
@@ -123,7 +122,7 @@ BOOST_FIXTURE_TEST_CASE(crossing_keystone_case_1_test, E2eFixture)
     ReconsiderTestBlock(pblock);
     ReconsiderTestBlock(pblock2);
     BOOST_CHECK(pblock3 == chainActive.Tip());
-}*/
+}
 
 BOOST_FIXTURE_TEST_CASE(crossing_keystone_case_3_test, E2eFixture)
 {
@@ -192,8 +191,7 @@ BOOST_FIXTURE_TEST_CASE(crossing_keystone_with_pop_invalid_1_test, E2eFixture)
     ReconsiderTestBlock(pblock);
 }
 
-//TODO: uncomment when POP fork resolution is done
-/*BOOST_FIXTURE_TEST_CASE(crossing_keystone_with_pop_1_test, E2eFixture)
+BOOST_FIXTURE_TEST_CASE(crossing_keystone_with_pop_1_test, E2eFixture)
 {
     int startHeight = chainActive.Tip()->nHeight;
 
@@ -226,7 +224,7 @@ BOOST_FIXTURE_TEST_CASE(crossing_keystone_with_pop_invalid_1_test, E2eFixture)
     ReconsiderTestBlock(forkBlockNext);
 
     BOOST_CHECK(expectedTip.GetHash() == chainActive.Tip()->GetBlockHash());
-}*/
+}
 
 BOOST_FIXTURE_TEST_CASE(crossing_keystone_without_pop_1_test, E2eFixture)
 {
