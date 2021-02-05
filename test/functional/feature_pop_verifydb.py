@@ -69,6 +69,7 @@ class PoPVerifyDB(BitcashTestFramework):
                 "-checkblocks={}".format(checkblocks),
                 "-checklevel={}".format(checklevel)
             ])
+            connect_nodes(self.nodes[0], 1)
             time.sleep(10)
             self.sync_all([self.nodes], timeout=60)
             assert_pop_state_equal(self.nodes)

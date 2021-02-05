@@ -64,6 +64,7 @@ class PopInit(BitcashTestFramework):
         # stop node0
         self.restart_node(0)
         self.restart_node(1)
+        connect_nodes(self.nodes[0], 1)
         self.log.info("nodes[0,1] restarted")
         self.sync_all([self.nodes], timeout=60)
         self.log.info("nodes are in sync")
