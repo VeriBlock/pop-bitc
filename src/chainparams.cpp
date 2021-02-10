@@ -166,7 +166,7 @@ public:
         pchMessageStart[0] = 0xf8;
         pchMessageStart[1] = 0xc2;
         pchMessageStart[2] = 0xb4;
-        pchMessageStart[3] = 0xe3;
+        pchMessageStart[3] = 0x01;
         nDefaultPort = 5723;
         nPruneAfterHeight = 100000;
 
@@ -359,8 +359,8 @@ public:
             *consensus.sEdgeBitsAllowed.begin()};
         consensus.nPowTargetTimespan = 24 * 60 * 60; // one for nBits adjustment
         consensus.nEdgeBitsTargetThreshold = 4;      // adjust nEdgeBits if block time is twice more/less than expected
-        consensus.nPowTargetSpacing = 1;             //1 * 60;
-        consensus.fPowAllowMinDifficultyBlocks = true;
+        consensus.nPowTargetSpacing = 1 * 60;
+        consensus.fPowAllowMinDifficultyBlocks = false;
         consensus.fPowNoRetargeting = false;
         consensus.nRuleChangeActivationThreshold = 1512; // 75% for testchains
         consensus.nMinerConfirmationWindow = 2016;       // nPowTargetTimespan / nPowTargetSpacing
@@ -386,8 +386,7 @@ public:
         consensus.DEACTIVATEPRICESERVERS = 1596702228; //Time of fork to deactivate the price servers
 
         // VeriBlock
-        // TODO: should determine the correct height
-        consensus.VeriBlockPopSecurityHeight = -1;
+        consensus.VeriBlockPopSecurityHeight = 200;
 
         // The best chain should have at least this much work.
         consensus.nMinimumChainWork = uint256S("0x00");
@@ -398,7 +397,7 @@ public:
         pchMessageStart[0] = 0x03;
         pchMessageStart[1] = 0x15;
         pchMessageStart[2] = 0x08;
-        pchMessageStart[3] = 0x03;
+        pchMessageStart[3] = 0x02;
         nDefaultPort = 15723;
         nPruneAfterHeight = 1000;
 
@@ -478,7 +477,7 @@ if (cuckoo::VerifyProofOfWork(genesis.GetHash(), genesis.nBits, genesis.nEdgeBit
         vFixedSeeds.clear();
         vSeeds.clear();
         // nodes with support for servicebits filtering should be at the top
-        vSeeds.emplace_back("testnet-seed.choosebitcash.com");
+        vSeeds.emplace_back("94.130.147.196");
 
         base58Prefixes[PUBKEY_ADDRESS] = std::vector<unsigned char>(1, 111);
         base58Prefixes[SCRIPT_ADDRESS] = std::vector<unsigned char>(1, 196);
@@ -579,7 +578,7 @@ public:
         pchMessageStart[0] = 0xf1;
         pchMessageStart[1] = 0xb3;
         pchMessageStart[2] = 0xd4;
-        pchMessageStart[3] = 0xc3;
+        pchMessageStart[3] = 0x03;
         nDefaultPort = 18534;
         nPruneAfterHeight = 1000;
 

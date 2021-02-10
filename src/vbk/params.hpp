@@ -33,7 +33,7 @@ struct AltChainParamsBITC : public altintegration::AltChainParams {
 
     int64_t getIdentifier() const noexcept override
     {
-        return 0x3ae6ca;
+        return 0x0017bc;
     }
 
     std::vector<uint8_t> getHash(const std::vector<uint8_t>& bytes) const noexcept override;
