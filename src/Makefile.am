@@ -225,15 +225,12 @@ libbitcash_server_a_SOURCES = \
   dbwrapper.cpp \
   merkleblock.cpp \
   miner.cpp \
-  cuckoo/cuckoo.cpp \
-  cuckoo/miner.cpp \
   net.cpp \
   net_processing.cpp \
   noui.cpp \
   policy/fees.cpp \
   policy/policy.cpp \
   policy/rbf.cpp \
-  pow.cpp \
   rest.cpp \
   stratum.cpp \
   vbk/rpc_register.hpp \
@@ -383,6 +380,8 @@ libbitcash_common_a_SOURCES = \
   chainparams.cpp \
   coins.cpp \
   compressor.cpp \
+  cuckoo/cuckoo.cpp \
+  cuckoo/miner.cpp \
   core_read.cpp \
   core_write.cpp \
   key.cpp \
@@ -406,6 +405,7 @@ libbitcash_common_a_SOURCES = \
   consensus/validation.h \
   hash.cpp \
   hash.h \
+  pow.cpp \
   prevector.h \
   primitives/block.cpp \
   primitives/block.h \
