@@ -234,8 +234,6 @@ libbitcash_server_a_SOURCES = \
   policy/policy.cpp \
   policy/rbf.cpp \
   pow.cpp \
-  vbk/params.hpp \
-  vbk/params.cpp \
   rest.cpp \
   stratum.cpp \
   vbk/rpc_register.hpp \
@@ -378,6 +376,8 @@ libbitcash_common_a_SOURCES = \
   vbk/pop_common.hpp \
   vbk/pop_common.cpp \
   vbk/bootstraps.cpp \
+  vbk/params.hpp \
+  vbk/params.cpp \
   base58.cpp \
   bech32.cpp \
   chainparams.cpp \

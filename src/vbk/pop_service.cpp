@@ -10,9 +10,9 @@
 #include <validation.h>
 #include <veriblock/storage/util.hpp>
 
-#ifdef WIN32
+#ifdef MSVC
 #include <boost/thread/interruption.hpp>
-#endif //WIN32
+#endif //MSVC
 
 #include <vbk/adaptors/block_provider.hpp>
 #include <vbk/adaptors/payloads_provider.hpp>
