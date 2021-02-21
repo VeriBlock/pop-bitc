@@ -223,8 +223,8 @@ Item {
         currency = "BITC";
         currencyvalue = 0;
         if (send.radioButton2tw.checked) {
-            currency = "BITCD";
-            currencyvalue = 1;
+            currency = "BTC";
+            currencyvalue = 3;
         } else
         if (send.radioButton3tw.checked) {
             currency = "BITCG";
@@ -260,8 +260,8 @@ Item {
         currency = "BITC";
         currencyvalue = 0;
         if (send.radioButton2in.checked) {
-            currency = "BITCD";
-            currencyvalue = 1;
+            currency = "BTC";
+            currencyvalue = 3;
         } else
         if (send.radioButton3in.checked) {
             currency = "BITCG";
@@ -297,8 +297,8 @@ Item {
         currency = "BITC";
         currencyvalue = 0;
         if (send.radioButton2re.checked) {
-            currency = "BITCD";
-            currencyvalue = 1;
+            currency = "BTC";
+            currencyvalue = 3;
         } else
         if (send.radioButton3re.checked) {
             currency = "BITCG";
@@ -338,6 +338,11 @@ Item {
     function setbalancesGo(avail, pending, immature, total, availnum) {
         overview.setbalancesinternGo(avail, pending, immature, total)
         send.setmaxbalanceinternGo(avail, availnum)
+    }
+
+    function setbalancesBi(avail, pending, immature, total, availnum) {
+        overview.setbalancesinternBi(avail, pending, immature, total)
+        send.setmaxbalanceinternBi(avail, availnum)
     }
 
     function setpriceDo(price, price2, pricegold) {
@@ -435,6 +440,7 @@ Item {
     signal showtxdetails(int index)
     signal sendBtnSignal(string destination, string label, string description, double amount, bool substractfee)    
     signal sendBtnDoSignal(string destination, string label, string description, double amount, bool substractfee)
+    signal sendBtnBiSignal(string destination, string label, string description, double amount, bool substractfee)
     signal sendBtnGoSignal(string destination, string label, string description, double amount, bool substractfee)
     signal sendBtntwSignal(string destination, string description, double amount, int currency)
     signal sendBtninSignal(string destination, string description, double amount, int currency)
@@ -532,6 +538,7 @@ Item {
                 onPrintBtnSignalIntern: openbillselectwindow2()
                 onSendBtnDoSignalIntern: sendBtnDoSignal(destination,label,description,amount,substractfee)
                 onSendBtnGoSignalIntern: sendBtnGoSignal(destination,label,description,amount,substractfee)
+                onSendBtnBiSignalIntern: sendBtnBiSignal(destination,label,description,amount,substractfee)
                 onPrintBtnDoSignalIntern: openbillselectwindow()
                 onSendBtntwSignalIntern: sendBtntwSignal(destination,description,amount, currency)
                 onSendconfirmedBtntwSignalIntern: sendconfirmedBtntwSignal(destination,description,amount,currency)

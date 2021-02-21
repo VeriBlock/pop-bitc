@@ -135,7 +135,8 @@ unsigned int GetP2SHSigOpCount(const CTransaction& tx, const CCoinsViewCache& in
     {
         if (tx.vin[i].isnickname)continue;
         const Coin& coin = inputs.AccessCoin(tx.vin[i].prevout);
-        assert(!coin.IsSpent());
+        if (!tx.isminttransaction()) 
+            assert(!coin.IsSpent());
         const CTxOut &prevout = coin.out;
         if (prevout.scriptPubKey.IsPayToScriptHash())
             nSigOps += prevout.scriptPubKey.GetSigOpCount(tx.vin[i].scriptSig);
@@ -158,7 +159,8 @@ int64_t GetTransactionSigOpCost(const CTransaction& tx, const CCoinsViewCache& i
     {
         if (tx.vin[i].isnickname)continue;
         const Coin& coin = inputs.AccessCoin(tx.vin[i].prevout);
-        assert(!coin.IsSpent());
+        if (!tx.isminttransaction()) 
+            assert(!coin.IsSpent());
         const CTxOut &prevout = coin.out;
         nSigOps += CountWitnessSigOps(tx.vin[i].scriptSig, prevout.scriptPubKey, &tx.vin[i].scriptWitness, flags);
     }
@@ -193,9 +195,9 @@ bool CheckTransaction(const CTransaction& tx, CValidationState &state, bool fChe
 
     for (const auto& txout : tx.vout)
     {
-        if (txout.currency > 0 && tx.nVersion >= 9) return state.DoS(100, false, REJECT_INVALID, "Transactions which create Dollar or Gold are deactivated for now.");
+        if ((txout.currency == 1 || txout.currency == 2) && tx.nVersion >= 9) return state.DoS(100, false, REJECT_INVALID, "Transactions which create Dollar or Gold are deactivated for now.");
 
-        if (txout.currency >= 3) return state.DoS(100, false, REJECT_INVALID, "bad-txns-vout-currency-not-supported");
+        if (txout.currency >= 5) return state.DoS(100, false, REJECT_INVALID, "bad-txns-vout-currency-not-supported");
 
         if (txout.referenceline.length()>1000)
             return state.DoS(100, false, REJECT_INVALID, "CTransaction::CheckTransaction() : txout.referenceline encrypted length>1000 characters");
@@ -285,6 +287,7 @@ bool CheckTransaction(const CTransaction& tx, CValidationState &state, bool fChe
 
 bool Consensus::CheckTxInputs(const CTransaction& tx, CValidationState& state, const CCoinsViewCache& inputs, int nSpendHeight, CAmount& txfee, uint256 blockhash, bool usehash, const CBlock* block)
 {
+    if (tx.isminttransaction()) return true;
     CPubKey nicknamemasterpubkey(ParseHex(NicknameMasterPubKey));
     // are the actual inputs available?
     if (!inputs.HaveInputs(tx)) {
@@ -336,7 +339,6 @@ bool Consensus::CheckTxInputs(const CTransaction& tx, CValidationState& state, c
 
             continue;
         }
-
         const COutPoint &prevout = tx.vin[i].prevout;
         const Coin& coin = inputs.AccessCoin(prevout);
         assert(!coin.IsSpent());
@@ -365,6 +367,15 @@ bool Consensus::CheckTxInputs(const CTransaction& tx, CValidationState& state, c
         nValueIn += coin.out.nValue;
         if (!MoneyRange(coin.out.nValue) || !MoneyRange(nValueIn)) {
             return state.DoS(100, false, REJECT_INVALID, "bad-txns-inputvalues-outofrange");
+        }
+    }
+
+    for (const auto& txout : tx.vout)
+    {
+       if (currency > 2 || txout.currency > 2) {
+            if (txout.currency != currency && (txout.currency != 4 || currency != 3)) {
+                return state.DoS(100, false, REJECT_INVALID, "bad-txns-input-currency-must-match-output-currency");
+            }
         }
     }
 

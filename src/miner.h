@@ -74,6 +74,7 @@ struct CTxMemPoolModifiedEntry {
     size_t GetTxSize() const { return iter->GetTxSize(); }
     const CTransaction& GetTx() const { return iter->GetTx(); }
     bool IsNicknameTx() const { return iter->IsNicknameTx(); }
+    bool IsMintTx() const { return iter->IsMintTx(); }
 
     CTxMemPool::txiter iter;
     uint64_t nSizeWithAncestors;

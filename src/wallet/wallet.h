@@ -1039,7 +1039,7 @@ public:
     bool CreateTransaction(const std::vector<CRecipient>& vecSend, CTransactionRef& tx, CReserveKey& reservekey, CAmount& nFeeRet,
                            int& nChangePosInOut, std::string& strFailReason, const CCoinControl& coin_control, bool sign = true, 
                            bool onlyfromoneaddress = false, CTxDestination fromaddress =  CNoDestination(), 
-                           bool provideprivatekey = false, CKey privatekey = CKey(), unsigned char fromcurrency = 0, bool checkagainstprivkey = false, CKey secret = CKey());
+                           bool provideprivatekey = false, CKey privatekey = CKey(), unsigned char fromcurrency = 0, bool checkagainstprivkey = false, CKey secret = CKey(), bool mintcoins = false);
     bool CreateTransactionToMe(uint256& txid, int outnr, CKey key, CAmount nValue, const CScript& scriptPubKey, std::string refline, CTransactionRef& tx, std::string& strFailReason, const CCoinControl& coin_control, CTxOut output,
                            bool onlyfromoneaddress = false, CTxDestination fromaddress =  CNoDestination(), unsigned char tocurrency = 0);
     bool CommitNicknameTransaction(CTransactionRef tx, std::vector<std::pair<std::string, std::string>> orderForm, std::string fromAccount,  CConnman* connman, CValidationState& state);

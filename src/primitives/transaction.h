@@ -62,6 +62,8 @@ public:
     std::string ToString() const;
 };
 
+COutPoint CTxInMintCoins();
+
 /** An input of a transaction.  It contains the location of the previous
  * transaction's output that it claims and a signature that matches the
  * output's public key.
@@ -182,6 +184,11 @@ public:
     friend bool operator!=(const CTxIn& a, const CTxIn& b)
     {
         return !(a == b);
+    }
+
+    bool isminttransaction() const
+    {
+        return prevout == COutPoint(uint256S("0x8ff824bc420ab27e8b47f02c058aa804236e701d09019851cbab1240b7bce292"), 0);
     }
 
     std::string ToString() const;
@@ -544,6 +551,25 @@ public:
             }
         }
         return false;
+    }
+
+    bool isminttransaction() const
+    {
+        bool ismint = false;
+        for (size_t i = 0; i < vin.size(); i++) {
+            if (vin[i].isminttransaction()) {
+                ismint = true;
+            }
+        }
+        if (ismint) 
+        {
+            for (size_t i = 0; i < vout.size(); i++) {
+                if (vout[i].currency < 3) {
+                    return false;
+                }
+            }            
+        }
+        return ismint;
     }
 };
 

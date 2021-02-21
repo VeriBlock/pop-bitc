@@ -621,7 +621,6 @@ static bool AcceptToMemoryPoolWorker(const CChainParams& chainparams, CTxMemPool
                               bool* pfMissingInputs, int64_t nAcceptTime, std::list<CTransactionRef>* plTxnReplaced,
                               bool bypass_limits, const CAmount& nAbsurdFee, std::vector<COutPoint>& coins_to_uncache, bool test_accept)
 {
-
     CPubKey nicknamemasterpubkey(ParseHex(NicknameMasterPubKey));
     const CTransaction& tx = *ptx;
     const uint256 hash = tx.GetHash();
@@ -680,8 +679,6 @@ static bool AcceptToMemoryPoolWorker(const CChainParams& chainparams, CTxMemPool
         return state.Invalid(false, REJECT_INVALID, "Old tx version");
     }
     
-
-
     // Reject transactions with witness before segregated witness activates (override with -prematurewitness)
     bool witnessEnabled = IsWitnessEnabled(chainActive.Tip(), chainparams.GetConsensus());
     if (!gArgs.GetBoolArg("-prematurewitness", false) && tx.HasWitness() && !witnessEnabled) {
@@ -709,9 +706,16 @@ static bool AcceptToMemoryPoolWorker(const CChainParams& chainparams, CTxMemPool
         LogPrintf("This transaction is already in the mempool.\n");
         return state.Invalid(false, REJECT_DUPLICATE, "This transaction is already in the mempool.");
     }
+    bool isminttransaction = false;
+    for (const CTxIn &txin : tx.vin) {
+        if (txin.isminttransaction()) {
+            isminttransaction = true;
+        }
+    }
 
     // Check for conflicts with in-memory transactions
     std::set<uint256> setConflicts;
+    if (!isminttransaction)
     for (const CTxIn &txin : tx.vin)
     {
         if (txin.isnickname){
@@ -797,6 +801,7 @@ static bool AcceptToMemoryPoolWorker(const CChainParams& chainparams, CTxMemPool
         LockPoints lp;
 
         // do all inputs exist?
+        if (!isminttransaction)
         for (const CTxIn txin : tx.vin) {
             if (!pcoinsTip->HaveCoinInCache(txin.prevout)) {
                 coins_to_uncache.push_back(txin.prevout);
@@ -823,13 +828,14 @@ static bool AcceptToMemoryPoolWorker(const CChainParams& chainparams, CTxMemPool
         // be mined yet.
         // Must keep pool.cs for this unless we change CheckSequenceLocks to take a
         // CoinsViewCache instead of create its own
-        if (!CheckSequenceLocks(tx, STANDARD_LOCKTIME_VERIFY_FLAGS, &lp)) {
+        if (!CheckSequenceLocks(tx, STANDARD_LOCKTIME_VERIFY_FLAGS, &lp) && !isminttransaction) {
             LogPrintf("non-BIP68-final\n");
             return state.DoS(0, false, REJECT_NONSTANDARD, "non-BIP68-final");
         }
 
         CAmount nFees = 0;
         if (!Consensus::CheckTxInputs(tx, state, view, GetSpendHeight(view), nFees, uint256S("0x0"), false, NULL)) {
+
             LogPrintf("CheckTxInputs\n");
             return error("%s: Consensus::CheckTxInputs: %s, %s", __func__, tx.GetHash().ToString(), FormatStateMessage(state));
         }
@@ -855,7 +861,7 @@ static bool AcceptToMemoryPoolWorker(const CChainParams& chainparams, CTxMemPool
         // during reorgs to ensure COINBASE_MATURITY is still met.
         bool fSpendsCoinbase = false;
         for (const CTxIn &txin : tx.vin) {
-            if (txin.isnickname)continue;
+            if (txin.isnickname)continue;            
             const Coin &coin = view.AccessCoin(txin.prevout);
             if (coin.IsCoinBase()) {
                 fSpendsCoinbase = true;
@@ -889,12 +895,12 @@ static bool AcceptToMemoryPoolWorker(const CChainParams& chainparams, CTxMemPool
             if (!txin.isnickname) {isnick=false;break;}
         }
         // No transactions are allowed below minRelayTxFee except from disconnected blocks
-        if (!bypass_limits && nModifiedFees < ::minRelayTxFee.GetFee(nSize) && !isnick) {
+        if (!bypass_limits && nModifiedFees < ::minRelayTxFee.GetFee(nSize) && !isnick && !isminttransaction) {
             LogPrintf("min relay fee not met\n");
             return state.DoS(0, false, REJECT_INSUFFICIENTFEE, "min relay fee not met", false, strprintf("%d < %d", nModifiedFees, ::minRelayTxFee.GetFee(nSize)));
         }
 
-        if (nAbsurdFee && nFees > nAbsurdFee) {
+        if (nAbsurdFee && nFees > nAbsurdFee && !isminttransaction) {
             LogPrintf("absurdly-high-fee\n");
             return state.Invalid(false,
                 REJECT_HIGHFEE, "absurdly-high-fee",
@@ -912,7 +918,6 @@ static bool AcceptToMemoryPoolWorker(const CChainParams& chainparams, CTxMemPool
             LogPrintf("too-long-mempool-chain\n");
             return state.DoS(0, false, REJECT_NONSTANDARD, "too-long-mempool-chain", false, errString);
         }
-
 
         // A transaction that spends outputs that would be replaced by it is invalid. Now
         // that we have the set of all ancestors we can detect this
@@ -975,7 +980,7 @@ static bool AcceptToMemoryPoolWorker(const CChainParams& chainparams, CTxMemPool
                 // require the replacement to pay more overall fees too,
                 // mitigating most cases.
                 CFeeRate oldFeeRate(mi->GetModifiedFee(), mi->GetTxSize());
-                if (newFeeRate <= oldFeeRate)
+                if (newFeeRate <= oldFeeRate && !isminttransaction)
                 {
                     LogPrintf("insufficient fee\n");
                     return state.DoS(0, false,
@@ -1040,7 +1045,7 @@ static bool AcceptToMemoryPoolWorker(const CChainParams& chainparams, CTxMemPool
             // The replacement must pay greater fees than the transactions it
             // replaces - if we did the bandwidth used by those conflicting
             // transactions would not be paid for.
-            if (nModifiedFees < nConflictingFees)
+            if (nModifiedFees < nConflictingFees && !isminttransaction)
             {
                 LogPrintf("insufficient fee\n");
                 return state.DoS(0, false,
@@ -1052,7 +1057,7 @@ static bool AcceptToMemoryPoolWorker(const CChainParams& chainparams, CTxMemPool
             // Finally in addition to paying more fees than the conflicts the
             // new transaction must pay for its own bandwidth.
             CAmount nDeltaFees = nModifiedFees - nConflictingFees;
-            if (nDeltaFees < ::incrementalRelayFee.GetFee(nSize))
+            if (nDeltaFees < ::incrementalRelayFee.GetFee(nSize) && !isminttransaction)
             {
                 LogPrintf("insufficient fee (2)\n");
                 return state.DoS(0, false,
@@ -1087,7 +1092,6 @@ static bool AcceptToMemoryPoolWorker(const CChainParams& chainparams, CTxMemPool
             return false; // state filled in by CheckInputs
         }
 
-
         // Check again against the current block tip's script verification
         // flags to cache our script execution flags. This is, of course,
         // useless if the next block has different script flags from the
@@ -1104,7 +1108,7 @@ static bool AcceptToMemoryPoolWorker(const CChainParams& chainparams, CTxMemPool
         // invalid blocks (using TestBlockValidity), however allowing such
         // transactions into the mempool can be exploited as a DoS attack.
         unsigned int currentBlockScriptVerifyFlags = GetBlockScriptFlags(chainActive.Tip(), Params().GetConsensus());
-        if (!CheckInputsFromMempoolAndCache(tx, state, view, pool, currentBlockScriptVerifyFlags, true, txdata)) {
+        if (!CheckInputsFromMempoolAndCache(tx, state, view, pool, currentBlockScriptVerifyFlags, true, txdata) && !isminttransaction) {
             // If we're using promiscuousmempoolflags, we may hit this normally
             // Check if current block has some flags that scriptVerifyFlags
             // does not before printing an ominous warning
@@ -1122,7 +1126,6 @@ static bool AcceptToMemoryPoolWorker(const CChainParams& chainparams, CTxMemPool
                 }
             }
         }
-
         if (test_accept) {
             // Tx was accepted, but not added
             return true;
@@ -1515,7 +1518,7 @@ void CChainState::InvalidBlockFound(CBlockIndex *pindex, const CValidationState 
 void UpdateCoins(const CTransaction& tx, CCoinsViewCache& inputs, CTxUndo &txundo, int nHeight)
 {
     // mark inputs spent
-    if (!tx.IsCoinBase()) {
+    if (!tx.IsCoinBase() && !tx.isminttransaction()) {
         txundo.vprevout.reserve(tx.vin.size());
         for (const CTxIn &txin : tx.vin) {
             txundo.vprevout.emplace_back();
@@ -1576,7 +1579,7 @@ void InitScriptExecutionCache() {
  */
 bool CheckInputs(const CTransaction& tx, CValidationState &state, const CCoinsViewCache &inputs, bool fScriptChecks, unsigned int flags, bool cacheSigStore, bool cacheFullScriptStore, PrecomputedTransactionData& txdata, std::vector<CScriptCheck> *pvChecks)
 {
-    if (!tx.IsCoinBase())
+    if (!tx.IsCoinBase() && !tx.isminttransaction())
     {
         if (pvChecks)
             pvChecks->reserve(tx.vin.size());
@@ -1837,7 +1840,7 @@ DisconnectResult CChainState::DisconnectBlock(const CBlock& block, const CBlockI
         }
 
         // restore inputs
-        if (i > 0) { // not coinbases
+        if (i > 0 && !tx.isminttransaction()) { // not coinbases
             CTxUndo &txundo = blockUndo.vtxundo[i-1];
 
             if (txundo.vprevout.size() != tx.vin.size()) {
@@ -2415,8 +2418,18 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
             break;
         }
         for (j = 0; j < tx.vout.size(); j++) {
-   
+
             if (tx.vout[j].currency != inputcurrency) {
+                if (inputcurrency == 3 && tx.vout[j].currency == 4) {
+                    //Burn Bitcoin
+                    if (tx.vout[j].nValue != tx.vout[j].nValueBitCash) {
+                        return state.DoS(100, false, REJECT_INVALID, "nValue-unequal-nValueBitCash", false, "The currency conversion is not correct: nValue is not equal to nValueBitCash.");
+                    }
+                } else
+                if (inputcurrency > 2 || tx.vout[j].currency > 2)
+                {
+                     state.DoS(100, false, REJECT_INVALID, "bad-currency-conversion", false, "The currency conversion is not correct.");
+                } else
                 if (inputcurrency == 0 && tx.vout[j].currency == 1) {
                     //Convert BitCash into Dollars
                     if (tx.vout[j].nValue != (__int128_t)tx.vout[j].nValueBitCash * (__int128_t)pricerate2 / (__int128_t)COIN) {

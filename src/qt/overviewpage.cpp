@@ -227,6 +227,19 @@ void OverviewPage::setBalance(const interfaces::WalletBalances& balances)
 
     QMetaObject::invokeMethod(qmlrootitem, "setbalancesGo", Q_RETURN_ARG(QVariant, returnedValue), Q_ARG(QVariant, availGo), Q_ARG(QVariant, pendingGo), Q_ARG(QVariant, immatureGo), Q_ARG(QVariant, totalGo), Q_ARG(QVariant, availnumGo));
 
+    QVariant availBi, pendingBi, immatureBi, totalBi, availnumBi, totalvalueBi;
+
+    availBi=BitcashUnits::format(unit, balances.balanceBi, false, BitcashUnits::separatorAlways); 
+    availnumBi=BitcashUnits::format(unit, balances.balanceBi, false, BitcashUnits::separatorNever); 
+
+    pendingBi=BitcashUnits::format(unit, balances.unconfirmed_balanceBi, false, BitcashUnits::separatorAlways);
+
+    immatureBi=BitcashUnits::format(unit, balances.immature_balanceBi, false, BitcashUnits::separatorAlways);
+
+    totalBi=BitcashUnits::format(unit, balances.balanceBi + balances.unconfirmed_balanceBi + balances.immature_balanceBi, false, BitcashUnits::separatorAlways);
+
+    QMetaObject::invokeMethod(qmlrootitem, "setbalancesBi", Q_RETURN_ARG(QVariant, returnedValue), Q_ARG(QVariant, availBi), Q_ARG(QVariant, pendingBi), Q_ARG(QVariant, immatureBi), Q_ARG(QVariant, totalBi), Q_ARG(QVariant, availnumBi));
+
 
     double pri = GetBlockPrice(1);
     if (pri == 0) pri = GetBlockPrice(0);

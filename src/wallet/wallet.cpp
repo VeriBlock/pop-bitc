@@ -1954,6 +1954,7 @@ bool CWallet::AddToWalletIfInvolvingMe(const CTransactionRef& ptx, const CBlockI
         AssertLockHeld(cs_wallet);
 
         if (pIndex != nullptr) {
+            if (!tx.isminttransaction())
             for (const CTxIn& txin : tx.vin) {
                 if (txin.isnickname) continue;
                 std::pair<TxSpends::const_iterator, TxSpends::const_iterator> range = mapTxSpends.equal_range(txin.prevout);
@@ -4678,10 +4679,10 @@ bool CWallet::CreateNicknameTransaction(std::string nickname, std::string addres
 bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransactionRef& tx, CReserveKey& reservekey, 
                                 CAmount& nFeeRet, int& nChangePosInOut, std::string& strFailReason, 
                                 const CCoinControl& coin_control, bool sign, 
-	                        bool onlyfromoneaddress, CTxDestination fromaddress, bool provideprivatekey, CKey privatekey, unsigned char fromcurrency, bool checkagainstprivkey, CKey secret)
+	                        bool onlyfromoneaddress, CTxDestination fromaddress, bool provideprivatekey, CKey privatekey, unsigned char fromcurrency, bool checkagainstprivkey, CKey secret, bool mintcoins)
 {
     unsigned char curr = fromcurrency;
-    if (curr >= 3) curr = 0;
+    if (curr >= 5) curr = 0;
 
     if (time(nullptr) < Params().GetConsensus().STABLETIME + 30 * 60 && fromcurrency > 0) {
         strFailReason = _("Transactions from a Dollar account are not yet allowed.");
@@ -4869,6 +4870,18 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransac
 
                     CTxOut txout(recipient.nAmount, recipient.scriptPubKey, 0);
 
+                    if (recipient.currency < 3 && mintcoins) {
+                        strFailReason = _("Only Bitcoin can be minted. BitCash can't be minted.");
+                        return false;
+                    }
+
+                    if (!mintcoins && (recipient.currency > 2 || curr > 2) && recipient.currency != curr && (recipient.currency != 4 || curr <= 2)) {
+                        strFailReason = _("Bitcoin can only be sent to another bitcoin address and received from another bitcoin address (use bitcoin@ before the address).");
+                        return false;
+                    }
+
+
+
                     if (time(nullptr) < Params().GetConsensus().STABLETIME + 30 * 60 && recipient.currency > 0) {
                         strFailReason = _("Transactions to a Dollar account are not yet allowed.");
                         return false;
@@ -4880,7 +4893,7 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransac
                         return false;
                     }
 
-                    if (recipient.currency > 0) {
+                    if (recipient.currency == 1 || recipient.currency == 2) {
                         strFailReason = _("Transactions to a Dollar or a Gold account are not allowed at the moment.");
                         return false;
                     }
@@ -4932,7 +4945,7 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransac
                     setCoins.clear();
                     coin_selection_params.change_spend_size = CalculateMaximumSignedInputSize(change_prototype_txout, this);
                     coin_selection_params.effective_fee = nFeeRateNeeded;
-                    if (!SelectCoins(vAvailableCoins, nValueToSelect, setCoins, nValueIn, coin_control, coin_selection_params, bnb_used, provideprivatekey))
+                    if (!SelectCoins(vAvailableCoins, nValueToSelect, setCoins, nValueIn, coin_control, coin_selection_params, bnb_used, provideprivatekey) && !mintcoins)
                     {
                         // If BnB was used, it was the first pass. No longer the first pass and continue loop with knapsack.
                         if (bnb_used) {
@@ -4947,7 +4960,7 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransac
                 }
 
                 const CAmount nChange = nValueIn - nValueToSelect;
-                if (nChange > 0)
+                if (nChange > 0 && !mintcoins)
                 {
                     // Fill a vout to ourself
                     CTxOut newTxOut(nChange, scriptChange, 0);   
@@ -5177,7 +5190,6 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransac
                     }
         }
 
-
         if (nChangePosInOut == -1) reservekey.ReturnKey(); // Return any reserved key if we don't have change
 
         // Shuffle selected coins and fill in final vin
@@ -5194,9 +5206,23 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransac
         // and in the spirit of "smallest possible change from prior
         // behavior."
         const uint32_t nSequence = coin_control.m_signal_bip125_rbf.get_value_or(m_signal_rbf) ? MAX_BIP125_RBF_SEQUENCE : (CTxIn::SEQUENCE_FINAL - 1);
-        for (const auto& coin : selected_coins) {
-            txNew.vin.push_back(CTxIn(coin.outpoint, CScript(), nSequence));
+        if (mintcoins) {
+            selected_coins.clear();
+
+            CTransactionRef tx;
+            uint256 hashBlock = uint256();
+            if (!GetTransaction(CTxInMintCoins().hash, tx, Params().GetConsensus(), hashBlock, true)) {
+                strFailReason = _("Mint coin base TX not found");
+                return false;
+            }
+            selected_coins.push_back(CInputCoin(tx,CTxInMintCoins().n));
+
+            //txNew.vin.push_back(CTxIn(CTxInMintCoins()/*COutPoint(uint256S("0x8ff824bc420ab27e8b47f02c058aa804236e701d09019851cbab1240b7bce292"), 0)*/, CScript(), nSequence)); 
         }
+        for (const auto& coin : selected_coins) {
+            txNew.vin.push_back(CTxIn(coin.outpoint, CScript(), nSequence));        
+        }
+
 
         if (sign)
         {

@@ -43,7 +43,8 @@ public:
         Amount = 8,
         Currency = 9,
         Ismined = 10,
-        Amountgold = 11
+        Amountgold = 11,
+        Amountbtc = 12
     };
 
     /** Roles to get specific information from a transaction row.
@@ -76,6 +77,8 @@ public:
         AmountRoleusd,
         /** Net amount of transaction */
         AmountRolegold,
+        /** Net amount of transaction */
+        AmountRolebitcoin,
         /** Transaction hash */
         TxHashRole,
         /** Transaction data, hex-encoded */
@@ -92,6 +95,8 @@ public:
         FormattedAmountRoleusd,
         /** Formatted amount, without brackets when unconfirmed */
         FormattedAmountRolegold,
+        /** Formatted amount, without brackets when unconfirmed */
+        FormattedAmountRolebitcoin,
         /** Transaction status (TransactionRecord::Status) */
         StatusRole,
         /** Unprocessed icon */
@@ -114,6 +119,8 @@ public:
         TableAmountRoleusd,
         //Amount for Table
         TableAmountRolegold,
+        //Amount for Table
+        TableAmountRolebitcoin,
         //transaction type icon index
         TableTypeAsNumberRole
     };
@@ -149,6 +156,7 @@ private:
     QString formatTxAmountbitc(const TransactionRecord *wtx, bool showUnconfirmed=true, BitcashUnits::SeparatorStyle separators=BitcashUnits::separatorStandard) const;
     QString formatTxAmountusd(const TransactionRecord *wtx, bool showUnconfirmed=true, BitcashUnits::SeparatorStyle separators=BitcashUnits::separatorStandard) const;
     QString formatTxAmountgold(const TransactionRecord *wtx, bool showUnconfirmed=true, BitcashUnits::SeparatorStyle separators=BitcashUnits::separatorStandard) const;
+    QString formatTxAmountbitcoin(const TransactionRecord *wtx, bool showUnconfirmed=true, BitcashUnits::SeparatorStyle separators=BitcashUnits::separatorStandard) const;
     QString formatTxReferenceline(const TransactionRecord *wtx) const;
     QString formatTxCurrency(const TransactionRecord *wtx) const;
     QString formatTooltip(const TransactionRecord *rec) const;

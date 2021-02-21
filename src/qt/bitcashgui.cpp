@@ -257,6 +257,9 @@ void BitcashGUI::printStatementsBtnClicked(int month, int year, int currency)
     for (int row = 0; row < rows; ++row) {
         QModelIndex index = ttm->index(row, TransactionTableModel::Date, {});
         qint64 unixtime = ttm->data(index, Qt::EditRole).toInt();
+        if (currency == 3) {
+            index = ttm->index(row, TransactionTableModel::Amountbtc, {});
+        } else
         if (currency == 1) {
             index = ttm->index(row, TransactionTableModel::Amountusd, {});
         } else  {
@@ -273,6 +276,12 @@ void BitcashGUI::printStatementsBtnClicked(int month, int year, int currency)
             if (ismined && amount != 0) {
            
                 QString amountstr = "";
+                if (currency == 3) {
+                    index = ttm->index(row, TransactionTableModel::Amountbtc, {});
+                    amountstr = ttm->data(index, Qt::DisplayRole).toString();
+
+                    //std::cout << "USD:" << amountusdstr.toStdString() << std::endl;
+                } else 
                 if (currency == 1) {
                     index = ttm->index(row, TransactionTableModel::Amountusd, {});
                     amountstr = ttm->data(index, Qt::DisplayRole).toString();
@@ -375,6 +384,7 @@ void BitcashGUI::printStatementsBtnClicked(int month, int year, int currency)
 
     painter.setPen(QColor(0x20,0x21,0x24));
     QString currstr;
+    if (currency == 3) currstr = "Bitcoin"; else 
     if (currency == 1) currstr = "BitCash Dollar"; else currstr = "BitCash";
     painter.drawText(x, y, QString(currstr + " eStatement %1/%2").arg(QString::number(month)).arg(QString::number(year)));
     y = y + painter.font().pointSize() * 1.5;
@@ -1963,7 +1973,8 @@ void BitcashGUI::SendLinksBtnClicked(const QString &description, double amount, 
         QVariant datestr=GUIUtil::dateTimeStr(qtimestamp);
         QVariant currencystr = tr("BITC");
         if (curr == 1) currencystr = tr("USD");else
-        if (curr == 2) currencystr = tr("GOLD");
+        if (curr == 2) currencystr = tr("GOLD");else
+        if (curr == 3) currencystr = tr("BTC");
 
         QMetaObject::invokeMethod(qmlrootitem, "addbitcashexpresslink", Q_RETURN_ARG(QVariant, returnedValue), Q_ARG(QVariant, s), Q_ARG(QVariant, description), Q_ARG(QVariant, amountstr), Q_ARG(QVariant, datestr), Q_ARG(QVariant, currencystr));
 
@@ -2007,6 +2018,7 @@ void BitcashGUI::SendLinksToModel()
         QVariant datestr=GUIUtil::dateTimeStr(qtimestamp);
         QString currencystr = "BITC";
         if (it.second.currency == 1) currencystr = "USD";
+        if (it.second.currency == 3) currencystr = "BTC";
 
         QMetaObject::invokeMethod(qmlrootitem, "addbitcashexpresslink", Q_RETURN_ARG(QVariant, returnedValue), Q_ARG(QVariant, s), Q_ARG(QVariant, description), Q_ARG(QVariant, amountstr), Q_ARG(QVariant, datestr), Q_ARG(QVariant, currencystr));
 
@@ -2086,6 +2098,7 @@ void BitcashGUI::createPaymentClicked(const QString &recipient, const QString &d
 
     QString currency = "BITC";
     if (curr == 1) currency = "USD";
+    if (curr == 3) currency = "BTC";
         
     QMetaObject::invokeMethod(qmlrootitem, "addpayment", Q_RETURN_ARG(QVariant, returnedValue), Q_ARG(QVariant, s), Q_ARG(QVariant, recipient), Q_ARG(QVariant, description), Q_ARG(QVariant, amountstr), Q_ARG(QVariant, dayqt), Q_ARG(QVariant, monthqt), Q_ARG(QVariant, currency));
 
@@ -2203,6 +2216,7 @@ void BitcashGUI::SendPaymentsToModel()
         const QVariant& month = it.second.month;
         QVariant currency = "BITC";
         if (it.second.currency == 1) currency = "USD";
+        if (it.second.currency == 3) currency = "BTC";
 
         QMetaObject::invokeMethod(qmlrootitem, "addpayment", Q_RETURN_ARG(QVariant, returnedValue), Q_ARG(QVariant, s), Q_ARG(QVariant, recipient), Q_ARG(QVariant, description), Q_ARG(QVariant, amountstr), Q_ARG(QVariant, day), Q_ARG(QVariant, month), Q_ARG(QVariant, currency));
 
@@ -2376,6 +2390,7 @@ void BitcashGUI::recurringpayments()
                QString currency;
                currency = "BITC";
                if (it->second.currency == 1) currency = "USD";
+               if (it->second.currency == 3) currency = "BTC";
 	       reply = QMessageBox::question(this, tr("Confirm execution of recurring payment"), tr("Recipient: %1\nDescription: %2\nAmount: %3\nAmount: %4\nDay of execution: %5\nMonth of execution: %6\n\nDo you want to execute the payment?").arg(QString::fromStdString(it->second.recipient)).arg(QString::fromStdString(it->second.description)).arg(QString::fromStdString(it->second.amount)).arg(currency).arg(it->second.day).arg(it->second.month), QMessageBox::Yes|QMessageBox::No);
                if (reply == QMessageBox::Yes) {
                    if (SendBtnClickedIntern(QString::fromStdString(it->second.recipient), "", QString::fromStdString(it->second.description), amountd, false, false, it->second.currency, false)) {
@@ -2546,7 +2561,8 @@ void BitcashGUI::SendConfirmedToTwitterBtnClicked(const QString &destination, co
         QVariant datestr=GUIUtil::dateTimeStr(qtimestamp);
         QVariant currencystr = tr("BITC");
         if (currency==1) currencystr = tr("USD");else
-        if (currency==2) currencystr = tr("GOLD ounces");
+        if (currency==2) currencystr = tr("GOLD ounces");else
+        if (currency==3) currencystr = tr("BTC");
 
         QMetaObject::invokeMethod(qmlrootitem, "addbitcashexpresslink", Q_RETURN_ARG(QVariant, returnedValue), Q_ARG(QVariant, s), Q_ARG(QVariant, descriptionnew), Q_ARG(QVariant, amountstr), Q_ARG(QVariant, datestr), Q_ARG(QVariant, currencystr));
 
@@ -2602,7 +2618,8 @@ void BitcashGUI::SendConfirmedToInstaBtnClicked(const QString &destination, cons
         QVariant datestr = GUIUtil::dateTimeStr(qtimestamp);
         QVariant currencystr = tr("BITC");
         if (currency==1) currencystr = tr("USD");else
-        if (currency==2) currencystr = tr("GOLD ounces");
+        if (currency==2) currencystr = tr("GOLD ounces");else
+        if (currency==3) currencystr = tr("BTC");
 
         QMetaObject::invokeMethod(qmlrootitem, "addbitcashexpresslink", Q_RETURN_ARG(QVariant, returnedValue), Q_ARG(QVariant, s), Q_ARG(QVariant, descriptionnew), Q_ARG(QVariant, amountstr), Q_ARG(QVariant, datestr), Q_ARG(QVariant, currencystr));
 
@@ -2658,7 +2675,8 @@ void BitcashGUI::SendConfirmedToTwitchBtnClicked(const QString &destination, con
         QVariant datestr=GUIUtil::dateTimeStr(qtimestamp);
         QVariant currencystr = tr("BITC");
         if (currency==1) currencystr = tr("USD");else
-        if (currency==2) currencystr = tr("GOLD ounces");
+        if (currency==2) currencystr = tr("GOLD ounces");else
+        if (currency==3) currencystr = tr("BTC");else
 
         QMetaObject::invokeMethod(qmlrootitem, "addbitcashexpresslink", Q_RETURN_ARG(QVariant, returnedValue), Q_ARG(QVariant, s), Q_ARG(QVariant, descriptionnew), Q_ARG(QVariant, amountstr), Q_ARG(QVariant, datestr), Q_ARG(QVariant, currencystr));
 
@@ -2746,6 +2764,8 @@ bool BitcashGUI::SendBtnClickedIntern(const QString &destination, const QString 
         // generate bold amount string with wallet name in case of multiwallet
         QString amount;
         
+        if (currency == 3) 
+        amount = "<b>" + BitcashUnits::formatHtmlWithUnit(BitcashUnits::BITCOIN, rcp.amount);else
         if (currency == 1) 
         amount = "<b>" + BitcashUnits::formatHtmlWithUnit(BitcashUnits::DOLLAR, rcp.amount);else
         amount = "<b>" + BitcashUnits::formatHtmlWithUnit(model->getOptionsModel()->getDisplayUnit(), rcp.amount);
@@ -2790,6 +2810,8 @@ bool BitcashGUI::SendBtnClickedIntern(const QString &destination, const QString 
     {
         // append fee string if a fee is required
         questionString.append("<hr /><span style='color:#aa0000;'>");
+        if (currency == 3) 
+        questionString.append(BitcashUnits::formatHtmlWithUnit(BitcashUnits::BITCOIN, txFee));else
         if (currency == 1) 
         questionString.append(BitcashUnits::formatHtmlWithUnit(BitcashUnits::DOLLAR, txFee));else
         questionString.append(BitcashUnits::formatHtmlWithUnit(model->getOptionsModel()->getDisplayUnit(), txFee));
@@ -2809,6 +2831,12 @@ bool BitcashGUI::SendBtnClickedIntern(const QString &destination, const QString 
         if(u != model->getOptionsModel()->getDisplayUnit())
             alternativeUnits.append(BitcashUnits::formatHtmlWithUnit(u, totalAmount));
     }*/
+    if (currency == 3) 
+    {
+        questionString.append(tr("Total Amount %1")
+            .arg(BitcashUnits::formatHtmlWithUnit(BitcashUnits::BITCOIN, totalAmount)));
+    } else
+
     if (currency == 1) 
     {
         questionString.append(tr("Total Amount %1")
@@ -2868,6 +2896,11 @@ void BitcashGUI::SendBtnClicked(const QString &destination, const QString &label
 void BitcashGUI::SendBtnDoClicked(const QString &destination, const QString &label, const QString &description, double amount, bool substractfee) 
 {
     SendBtnClickedIntern(destination, label, description, amount, substractfee, true, 1, false);
+}
+
+void BitcashGUI::SendBtnBiClicked(const QString &destination, const QString &label, const QString &description, double amount, bool substractfee) 
+{
+    SendBtnClickedIntern(destination, label, description, amount, substractfee, true, 3, false);
 }
 
 void BitcashGUI::SendBtnGoClicked(const QString &destination, const QString &label, const QString &description, double amount, bool substractfee) 
@@ -3286,6 +3319,8 @@ BitcashGUI::BitcashGUI(interfaces::Node& node, const PlatformStyle *_platformSty
                       this, SLOT(SendBtnClicked(QString, QString, QString, double, bool)));
     QObject::connect(qmlrootitem, SIGNAL(sendBtnDoSignal(QString, QString, QString, double, bool)),
                       this, SLOT(SendBtnDoClicked(QString, QString, QString, double, bool)));
+    QObject::connect(qmlrootitem, SIGNAL(sendBtnBiSignal(QString, QString, QString, double, bool)),
+                      this, SLOT(SendBtnBiClicked(QString, QString, QString, double, bool)));
     QObject::connect(qmlrootitem, SIGNAL(sendBtnGoSignal(QString, QString, QString, double, bool)),
                       this, SLOT(SendBtnGoClicked(QString, QString, QString, double, bool)));
     QObject::connect(qmlrootitem, SIGNAL(registerNickSignal(QString, QString)),

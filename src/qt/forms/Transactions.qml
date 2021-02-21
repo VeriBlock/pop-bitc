@@ -323,7 +323,7 @@ Item {
                 Label {
                     width: amountgoldwidth
                     height: 44
-                    text: qsTr("Gold")
+                    text: qsTr("Bitcoin")
                     verticalAlignment: Text.AlignVCenter
                     anchors.verticalCenter: parent.verticalCenter
                     rightPadding: 20
@@ -706,7 +706,7 @@ Item {
                                     width: amountgoldwidth
                                     text: ""
                                     Label {
-                                        text: transactionamountgold
+                                        text: transactionamountbitcoin
                                         anchors.leftMargin: 8
                                         anchors.rightMargin: 20
                                         anchors.left: parent.left
@@ -722,7 +722,7 @@ Item {
                                     ToolTip.delay: 1000
                                     ToolTip.timeout: 5000
                                     ToolTip.visible: hovered
-                                    ToolTip.text: transactionamountgold+"\n"+tooltip
+                                    ToolTip.text: transactionamountbitcoin+"\n"+tooltip
                                     MouseArea {
                                         anchors.fill: parent
                                         acceptedButtons: Qt.RightButton
@@ -743,9 +743,9 @@ Item {
                                     Menu {
                                         id: contextMenuamountgold
                                         MenuItem {
-                                            text: qsTr("Copy amount Gold")
+                                            text: qsTr("Copy amount Bitcoin")
                                             onTriggered: {
-                                                copytextfield.text = transactionamountgold
+                                                copytextfield.text = transactionamountbitcoin
                                                 copytextfield.selectAll()
                                                 copytextfield.copy()
                                             }
