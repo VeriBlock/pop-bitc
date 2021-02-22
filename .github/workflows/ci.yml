@@ -146,7 +146,7 @@ jobs:
           cp ./depends/x86_64-w64-mingw32/qml/QtQuick/Controls.2/libqtquickcontrols2plugin.a depends/x86_64-w64-mingw32/lib/
           cp ./depends/x86_64-w64-mingw32/qml/QtQuick/Controls.2/Material/libqtquickcontrols2materialstyleplugin.a depends/x86_64-w64-mingw32/lib/
           cp ./depends/x86_64-w64-mingw32/qml/QtQuick/Layouts/libqquicklayoutsplugin.a depends/x86_64-w64-mingw32/lib/
-          cp ./depends/x86_64-w64-mingw32/qml/QtQuick/Templates.2/libqtquicktemplates2plugin.a depends/x86_64-w64-mingw32/lib/ 
+          cp ./depends/x86_64-w64-mingw32/qml/QtQuick/Templates.2/libqtquicktemplates2plugin.a depends/x86_64-w64-mingw32/lib/
           cp ./depends/x86_64-w64-mingw32/qml/QtQuick/Window.2/libwindowplugin.a depends/x86_64-w64-mingw32/lib/
           cp ./depends/x86_64-w64-mingw32/qml/QtQuick.2/libqtquick2plugin.a depends/x86_64-w64-mingw32/lib/
       - name: autogen
