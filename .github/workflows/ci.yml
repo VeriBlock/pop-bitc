@@ -87,3 +87,70 @@ jobs:
         if: always()
         timeout-minutes: 60
         run: python3 test/functional/test_runner.py
+
+  x86_64-w64-mingw32:
+    runs-on: ubuntu-latest
+    steps:
+      - name: checkout
+        uses: actions/checkout@v2
+      - uses: actions/setup-python@v2
+        with:
+          python-version: '3.x' # Version range or exact version of a Python version to use, using SemVer's version range syntax
+          architecture: 'x64' # optional x64 or x86. Defaults to x64 if not specified
+      - name: Extract branch name & commit
+        id: extract_branch
+        run: |
+          echo "::set-output name=git_hash::$(git rev-parse --short=7 "$GITHUB_SHA")"
+          echo "::set-output name=branch::$(echo ${GITHUB_REF#refs/heads/} | sed 's/\//\./g')"
+      - name: Prepare ccache timestamp
+        id: cache_timestamp
+        run: |
+          current_date=`date --utc +%Y%m%d_%H%M%SZ`
+          echo "::set-output name=timestamp::${current_date}"
+      - name: depends cache files
+        if: github.event_name == 'push' || github.event_name == 'pull_request'
+        uses: actions/cache@v1.1.0
+        with:
+          path: ~/.depends_cache
+          key: mingw32-depends-${{ steps.cache_timestamp.outputs.timestamp }}
+          restore-keys: |
+            mingw32-depends-
+      - name: ccache cache files
+        if: github.event_name == 'push' || github.event_name == 'pull_request'
+        uses: actions/cache@v1.1.0
+        with:
+          path: ~/.ccache
+          key: mingw32-ccache-${{ steps.cache_timestamp.outputs.timestamp }}
+          restore-keys: |
+            mingw32-ccache-
+      - name: run apt update
+        run: sudo apt-get update
+      - name: install build requirements
+        run: sudo apt-get install python3 python3-pip python3-setuptools build-essential libtool autotools-dev automake pkg-config bsdmainutils curl git g++-mingw-w64-x86-64 ccache nsis python-setuptools
+      - name: set the default mingw32 g++ compiler option to posix
+        run: sudo update-alternatives --set x86_64-w64-mingw32-g++ /usr/bin/x86_64-w64-mingw32-g++-posix
+      - name: strip out problematic Windows %PATH% imported var
+        run: PATH=$(echo "$PATH" | sed -e 's/:\/mnt.*//g')
+      - name: set variables and build dependencies for x86_64-w64
+        env:
+          BUILD_TYPE: Release
+          HOST: x86_64-w64-mingw32
+          BASE_CACHE: ~/.depends_cache
+        run: cd depends && make -j2
+      - name: autogen
+        run: ./autogen.sh
+      - name: configure
+        run: CONFIG_SITE=$PWD/depends/x86_64-w64-mingw32/share/config.site ./configure --prefix=/
+          --disable-bench
+          --with-incompatible-bdb
+      - name: make
+        run: make -j2
+      - name: make deploy
+        if: success()
+        run: make deploy
+      - name: create artifacts
+        if: success()
+        run: |
+          mv ./bitcash-0.19.99-win64-setup-unsigned.exe release/
+          mv ./release bitcash-${{ steps.extract_branch.outputs.branch }}-${{ steps.extract_branch.outputs.git_hash }}
+          zip -r9 bitcash-${{ steps.extract_branch.outputs.branch }}-${{ steps.extract_branch.outputs.git_hash }}-win64-qt.zip vBitcoin-${{ steps.extract_branch.outputs.branch }}-${{ steps.extract_branch.outputs.git_hash }}
