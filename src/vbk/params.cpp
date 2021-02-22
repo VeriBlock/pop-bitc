@@ -17,7 +17,7 @@
 
 namespace VeriBlock {
 
-bool AltChainParamsBITC::checkBlockHeader(const std::vector<uint8_t>& bytes, const std::vector<uint8_t>& root) const noexcept
+bool AltChainParamsBITC::checkBlockHeader(const std::vector<uint8_t>& bytes, const std::vector<uint8_t>& root, altintegration::ValidationState& state) const noexcept
 {
     const CChainParams& params = Params();
 
@@ -26,16 +26,19 @@ bool AltChainParamsBITC::checkBlockHeader(const std::vector<uint8_t>& bytes, con
         auto header = VeriBlock::headerFromBytes(bytes);
         if (isX16Ractive(header.nVersion)) {
             if (!CheckProofOfWork(header.GetHash(), header.nBits, params.GetConsensus()))
-                return false;
+                return state.Invalid("bad-pow", "Bad proof of work");
         } else {
             if (!cuckoo::VerifyProofOfWork(header.GetHash(), header.nBits, header.nEdgeBits, header.sCycle, params.GetConsensus()))
-                return false;
+                return state.Invalid("bad-pow", "Bad proof of work (cuckoo hash)");
         }
-        return
-            /* top level merkle `root` calculated by library is same as in endorsed header */
-            header.hashMerkleRoot.asVector() == root;
+        /* top level merkle `root` calculated by library is same as in endorsed header */
+        auto actual = header.hashMerkleRoot.asVector();
+        if(actual != root) {
+            return state.Invalid("bad-merkle-root", strprintf("Expected %s, got %s", altintegration::HexStr(root), altintegration::HexStr(actual)));
+        }
+        return true;
     } catch (...) {
-        return false;
+        return state.Invalid("bad-header", "Can not parse block header");
     }
 }
 
