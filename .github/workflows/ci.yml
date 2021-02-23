@@ -164,10 +164,9 @@ jobs:
         run: |
           mv ./bitcash-0.17.29-win64-setup.exe release/
           mv ./release bitcash-${{ steps.extract_branch.outputs.branch }}-${{ steps.extract_branch.outputs.git_hash }}
-          zip -r9 bitcash-${{ steps.extract_branch.outputs.branch }}-${{ steps.extract_branch.outputs.git_hash }}-win64-qt.zip bitcash-${{ steps.extract_branch.outputs.branch }}-${{ steps.extract_branch.outputs.git_hash }}
       - name: upload artifacts
         if: success()
         uses: actions/upload-artifact@v2
         with:
           name: bitcash-${{ steps.extract_branch.outputs.branch }}-${{ steps.extract_branch.outputs.git_hash }}-win64-qt.zip
-          path: bitcash-${{ steps.extract_branch.outputs.branch }}-${{ steps.extract_branch.outputs.git_hash }}-win64-qt.zip
+          path: bitcash-${{ steps.extract_branch.outputs.branch }}-${{ steps.extract_branch.outputs.git_hash }}
