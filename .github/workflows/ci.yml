@@ -154,7 +154,6 @@ jobs:
       - name: configure
         run: CONFIG_SITE=$PWD/depends/x86_64-w64-mingw32/share/config.site ./configure --prefix=/
           --disable-bench
-          --with-incompatible-bdb
       - name: make
         run: make -j2
       - name: make deploy
@@ -163,6 +162,6 @@ jobs:
       - name: create artifacts
         if: success()
         run: |
-          mv ./bitcash-0.19.99-win64-setup-unsigned.exe release/
+          mv ./bitcash-0.17.29-win64-setup.exe release/
           mv ./release bitcash-${{ steps.extract_branch.outputs.branch }}-${{ steps.extract_branch.outputs.git_hash }}
           zip -r9 bitcash-${{ steps.extract_branch.outputs.branch }}-${{ steps.extract_branch.outputs.git_hash }}-win64-qt.zip bitcash-${{ steps.extract_branch.outputs.branch }}-${{ steps.extract_branch.outputs.git_hash }}
