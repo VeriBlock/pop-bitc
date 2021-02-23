@@ -108,7 +108,9 @@ struct E2eFixture : public TestChain100Setup {
         }
 
         auto publicationdata = createPublicationData(endorsed, payoutInfo);
-        auto atv = popminer.endorseAltBlock(publicationdata);
+        auto vbktx = popminer.createVbkTxEndorsingAltBlock(publicationdata);
+        auto* vbkblock = popminer.mineVbkBlocks(1, {vbktx});
+        auto atv = popminer.createATV(vbkblock->getHeader(), vbktx);
         BOOST_CHECK(state.IsValid());
         return atv;
     }
@@ -191,7 +193,7 @@ struct E2eFixture : public TestChain100Setup {
             throw std::logic_error("can not find VBK block at height " + std::to_string(height));
         }
 
-        return popminer.endorseVbkBlock(endorsed->getHeader());
+        return popminer.endorseVbkBlock(endorsed->getHeader(), getLastKnownBTCblock());
     }
 
     PublicationData createPublicationData(CBlockIndex* endorsed, const std::vector<uint8_t>& payoutInfo)
