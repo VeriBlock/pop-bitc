@@ -3592,7 +3592,7 @@ bool PeerLogicValidation::SendMessages(CNode* pto, std::atomic<bool>& interruptM
                     pto->setInventoryTxToSend.erase(hash);
                     if (filterrate) {
                         bool isnicknametx=(txinfo.tx->vin.size()==1 && txinfo.tx->vin[0].isnickname);
-                        if (!isnicknametx && txinfo.feeRate.GetFeePerK() < filterrate)
+                        if (!txinfo.tx->isminttransaction() && !isnicknametx && txinfo.feeRate.GetFeePerK() < filterrate)
                             continue;
                     }
                     if (pto->pfilter) {
@@ -3648,7 +3648,7 @@ bool PeerLogicValidation::SendMessages(CNode* pto, std::atomic<bool>& interruptM
                     }
 
                     bool isnicknametx=(txinfo.tx->vin.size()==1 && txinfo.tx->vin[0].isnickname);
-                    if (!isnicknametx && filterrate && txinfo.feeRate.GetFeePerK() < filterrate) {
+                    if (!txinfo.tx->isminttransaction() && !isnicknametx && filterrate && txinfo.feeRate.GetFeePerK() < filterrate) {
                         continue;
                     }
                     if (pto->pfilter && !pto->pfilter->IsRelevantAndUpdate(*txinfo.tx)) continue;
