@@ -98,11 +98,15 @@ BOOST_AUTO_TEST_CASE(BinaryOperatorTest)
     BOOST_CHECK(a == b);
 }
 
+#ifdef ENABLE_TESTS
+
 BOOST_AUTO_TEST_CASE(ToStringTest)
 {
     CFeeRate feeRate;
     feeRate = CFeeRate(1);
     BOOST_CHECK_EQUAL(feeRate.ToString(), "0.00000001 BITC/kB");
 }
+
+#endif // ENABLE_TESTS
 
 BOOST_AUTO_TEST_SUITE_END()

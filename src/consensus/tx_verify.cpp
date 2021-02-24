@@ -200,9 +200,8 @@ bool CheckTransaction(const CTransaction& tx, CValidationState &state, bool fChe
         if (txout.referenceline.length()>1000)
             return state.DoS(100, false, REJECT_INVALID, "CTransaction::CheckTransaction() : txout.referenceline encrypted length>1000 characters");
 
-//std::cout << "i" << i << std::endl;i++;
-//std::cout << "txout.nValue" << FormatMoney(txout.nValue) << std::endl;
-//std::cout << "txout.nValueBitCash" << FormatMoney(txout.nValueBitCash) << std::endl;
+//std::cerr << "txout.nValue" << FormatMoney(txout.nValue) << std::endl;
+//std::cerr << "txout.nValueBitCash" << FormatMoney(txout.nValueBitCash) << std::endl;
         if (txout.nValue < 0)
             return state.DoS(100, false, REJECT_INVALID, "bad-txns-vout-negative");
         if (txout.nValue > MAX_MONEY)

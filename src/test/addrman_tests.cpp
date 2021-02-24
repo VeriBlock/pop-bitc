@@ -414,6 +414,7 @@ BOOST_AUTO_TEST_CASE(addrman_getaddr)
     BOOST_CHECK_EQUAL(addrman.size(), 2006U);
 }
 
+#ifdef ENABLE_TESTS
 
 BOOST_AUTO_TEST_CASE(caddrinfo_get_tried_bucket)
 {
@@ -468,6 +469,8 @@ BOOST_AUTO_TEST_CASE(caddrinfo_get_tried_bucket)
     //  8 buckets.
     BOOST_CHECK_EQUAL(buckets.size(), 160U);
 }
+
+#endif // ENABLE_TESTS
 
 BOOST_AUTO_TEST_CASE(caddrinfo_get_new_bucket)
 {

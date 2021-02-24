@@ -106,6 +106,8 @@ static void AddRandomOutboundPeer(std::vector<CNode *> &vNodes, PeerLogicValidat
     CConnmanTest::AddNode(node);
 }
 
+#ifdef ENABLE_TESTS
+
 BOOST_AUTO_TEST_CASE(stale_tip_peer_management)
 {
     const Consensus::Params& consensusParams = Params().GetConsensus();
@@ -174,6 +176,8 @@ BOOST_AUTO_TEST_CASE(stale_tip_peer_management)
 
     CConnmanTest::ClearNodes();
 }
+
+#endif // ENABLE_TESTS
 
 BOOST_AUTO_TEST_CASE(DoS_banning)
 {
@@ -301,6 +305,8 @@ static CTransactionRef RandomOrphan()
     return it->second.tx;
 }
 
+#ifdef ENABLE_TESTS
+
 BOOST_AUTO_TEST_CASE(DoS_mapOrphans)
 {
     CKey key;
@@ -381,5 +387,7 @@ BOOST_AUTO_TEST_CASE(DoS_mapOrphans)
     LimitOrphanTxSize(0);
     BOOST_CHECK(mapOrphanTransactions.empty());
 }
+
+#endif // ENABLE_TESTS
 
 BOOST_AUTO_TEST_SUITE_END()

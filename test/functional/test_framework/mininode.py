@@ -49,12 +49,22 @@ MESSAGEMAP = {
     b"tx": msg_tx,
     b"verack": msg_verack,
     b"version": msg_version,
+    #VeriBlock
+    b"ofATV": msg_offer_atv,
+    b"ofVTB": msg_offer_vtb,
+    b"ofVBK": msg_offer_vbk,
+    b"ATV": msg_atv,
+    b"VTB": msg_vtb,
+    b"VBK": msg_vbk,
+    b"gATV": msg_get_atv,
+    b"gVTB": msg_get_vtb,
+    b"gVBK": msg_get_vbk,
 }
 
 MAGIC_BYTES = {
-    "mainnet": b"\xf9\xbe\xb4\xd9",   # mainnet
-    "testnet3": b"\x0b\x11\x09\x07",  # testnet3
-    "regtest": b"\xfa\xbf\xb5\xda",   # regtest
+    "mainnet": b"\xf8\xc2\xb4\x01",   # mainnet
+    "testnet3": b"\x03\x15\x08\x02",  # testnet3
+    "regtest": b"\xf1\xb3\xd4\x03",   # regtest
 }
 
 class P2PConnection(asyncore.dispatcher):
@@ -271,7 +281,6 @@ class P2PInterface(P2PConnection):
 
     def peer_connect(self, *args, services=NODE_NETWORK|NODE_WITNESS, send_version=True, **kwargs):
         super().peer_connect(*args, **kwargs)
-
         if send_version:
             # Send a version msg
             vt = msg_version()
@@ -344,6 +353,26 @@ class P2PInterface(P2PConnection):
         assert message.nVersion >= MIN_VERSION_SUPPORTED, "Version {} received. Test framework only supports versions greater than {}".format(message.nVersion, MIN_VERSION_SUPPORTED)
         self.send_message(msg_verack())
         self.nServices = message.nServices
+
+    #VeriBlock
+    def on_ofATV(self, message):
+        pass
+    def on_ofVTB(self, message):
+        pass
+    def on_ofVBK(self, message):
+        pass
+    def on_ATV(self, message):
+        pass
+    def on_VTB(self, message):
+        pass
+    def on_VBK(self, message):
+        pass
+    def on_gATV(self, message):
+        pass
+    def on_gVTB(self, message):
+        pass
+    def on_gVBK(self, message):
+        pass
 
     # Connection helper methods
 

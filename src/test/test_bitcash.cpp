@@ -16,38 +16,9 @@
 #include <rpc/server.h>
 #include <rpc/register.h>
 #include <script/sigcache.h>
-
-
-CPubKey GetAddressForNickname(std::string nick)
-{
-    return CPubKey();
-}
-
-bool SetNickname(const std::string& strName,const CPubKey address, uint256 hash)
-{
-    return true;
-}
-
-bool DeleteNickname(const std::string& strName,const CPubKey address)
-{
-    return true;
-}
-
-std::string GetNicknameForAddress(CPubKey address)
-{ 
-    std::string str="";
-    return str;
-}
-
-uint256 GetHashForNickname(std::string nick)
-{
-    return uint256S("0x0");
-}
-
-uint256 GetHashForAddress(CPubKey address)
-{
-    return uint256S("0x0");
-}
+#include <vbk/merkle.hpp>
+#include <vbk/params.hpp>
+#include <vbk/pop_service.hpp>
 
 void CConnmanTest::AddNode(CNode& node)
 {
@@ -72,7 +43,7 @@ extern void noui_connect();
 
 BasicTestingSetup::BasicTestingSetup(const std::string& chainName)
 {
-       SHA256AutoDetect();
+        SHA256AutoDetect();
         RandomInit();
         ECC_Start();
         SetupEnvironment();
@@ -81,6 +52,8 @@ BasicTestingSetup::BasicTestingSetup(const std::string& chainName)
         InitScriptExecutionCache();
         fCheckBlockIndex = true;
         SelectParams(chainName);
+        // VeriBlock
+        VeriBlock::selectPopConfig("regtest", "regtest", true);
         noui_connect();
 }
 
@@ -91,7 +64,7 @@ BasicTestingSetup::~BasicTestingSetup()
 
 TestingSetup::TestingSetup(const std::string& chainName) : BasicTestingSetup(chainName)
 {
-    const CChainParams& chainparams = Params();
+        const CChainParams& chainparams = Params();
         // Ideally we'd move all the RPC tests to the functional testing framework
         // instead of unit tests, but for now we need these here.
 
@@ -108,6 +81,9 @@ TestingSetup::TestingSetup(const std::string& chainName) : BasicTestingSetup(cha
 
         mempool.setSanityCheck(1.0);
         pblocktree.reset(new CBlockTreeDB(1 << 20, true));
+        // VeriBlock
+        VeriBlock::InitPopContext(*pblocktree);
+
         pcoinsdbview.reset(new CCoinsViewDB(1 << 23, true));
         pcoinsTip.reset(new CCoinsViewCache(pcoinsdbview.get()));
         if (!LoadGenesisBlock(chainparams)) {
@@ -131,6 +107,7 @@ TestingSetup::~TestingSetup()
 {
         threadGroup.interrupt_all();
         threadGroup.join_all();
+        VeriBlock::StopPop();
         GetMainSignals().FlushBackgroundCallbacks();
         GetMainSignals().UnregisterBackgroundSignalScheduler();
         g_connman.reset();
@@ -156,6 +133,21 @@ TestChain100Setup::TestChain100Setup() : TestingSetup(CBaseChainParams::REGTEST)
         CBlock b = CreateAndProcessBlock(noTxns, scriptPubKey);
         m_coinbase_txns.push_back(b.vtx[0]);
     }
+
+    auto& tree = *VeriBlock::GetPop().altTree;
+    assert(tree.getBestChain().tip()->getHeight() == chainActive.Tip()->nHeight);
+}
+
+static void IncrementExtraNonceTest(CBlock* pblock, const CBlockIndex* pindexPrev, unsigned int& nExtraNonce)
+{
+    ++nExtraNonce;
+    unsigned int nHeight = pindexPrev->nHeight + 1; // Height first in coinbase required for block.version=2
+    CMutableTransaction txCoinbase(*pblock->vtx[0]);
+    txCoinbase.vin[0].scriptSig = (CScript() << nHeight << CScriptNum(nExtraNonce)) + COINBASE_FLAGS;
+    assert(txCoinbase.vin[0].scriptSig.size() <= 100);
+
+    pblock->vtx[0] = MakeTransactionRef(std::move(txCoinbase));
+    pblock->hashMerkleRoot = VeriBlock::TopLevelMerkleRoot(pindexPrev, *pblock);
 }
 
 //
@@ -163,10 +155,18 @@ TestChain100Setup::TestChain100Setup() : TestingSetup(CBaseChainParams::REGTEST)
 // scriptPubKey, and try to add it to the current chain.
 //
 CBlock
-TestChain100Setup::CreateAndProcessBlock(const std::vector<CMutableTransaction>& txns, const CScript& scriptPubKey)
+TestChain100Setup::CreateAndProcessBlock(const std::vector<CMutableTransaction>& txns, uint256 prevBlock,
+                             const CScript& scriptPubKey, bool* isBlockValid)
 {
+    CBlockIndex* pPrev = nullptr;
+    {
+        LOCK(cs_main);
+        pPrev = LookupBlockIndex(prevBlock);
+        assert(pPrev && "CreateAndProcessBlock called with unknown prev block");
+    }
+
     const CChainParams& chainparams = Params();
-    std::unique_ptr<CBlockTemplate> pblocktemplate = BlockAssembler(chainparams).CreateNewBlock(scriptPubKey);
+    std::unique_ptr<CBlockTemplate> pblocktemplate = BlockAssembler(chainparams).CreateNewBlockWithScriptPubKey(scriptPubKey, false);
     CBlock& block = pblocktemplate->block;
 
     // Replace mempool-selected txns with just coinbase plus passed-in txns:
@@ -176,17 +176,25 @@ TestChain100Setup::CreateAndProcessBlock(const std::vector<CMutableTransaction>&
     // IncrementExtraNonce creates a valid coinbase and merkleRoot
     {
         LOCK(cs_main);
-        unsigned int extraNonce = 0;
-        IncrementExtraNonce(&block, chainActive.Tip(), extraNonce);
+        IncrementExtraNonceTest(&block, pPrev, extraNonce);
     }
-
     while (!CheckProofOfWork(block.GetHash(), block.nBits, chainparams.GetConsensus())) ++block.nNonce;
 
     std::shared_ptr<const CBlock> shared_pblock = std::make_shared<const CBlock>(block);
-    ProcessNewBlock(chainparams, shared_pblock, true, nullptr, true);
+    bool isValid = ProcessNewBlock(chainparams, shared_pblock, true, nullptr, true);
+    if(isBlockValid != nullptr) {
+        *isBlockValid = isValid;
+    }
 
     CBlock result = block;
     return result;
+}
+
+// Create a new block with just given transactions, coinbase paying to
+// scriptPubKey, and try to add it to the current chain.
+CBlock TestChain100Setup::CreateAndProcessBlock(const std::vector<CMutableTransaction>& txns, const CScript& scriptPubKey, bool* isBlockValid)
+{
+    return CreateAndProcessBlock(txns, chainActive.Tip()->GetBlockHash(), scriptPubKey, isBlockValid);
 }
 
 TestChain100Setup::~TestChain100Setup()

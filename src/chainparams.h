@@ -89,6 +89,15 @@ public:
     const CCheckpointData& Checkpoints() const { return checkpointData; }
     const ChainTxData& TxData() const { return chainTxData; }
     void UpdateVersionBitsParameters(Consensus::DeploymentPos d, int64_t nStartTime, int64_t nTimeout);
+
+    // VeriBlock start
+    bool isPopActive(int height) const {
+            return height >= (int)consensus.VeriBlockPopSecurityHeight;
+    }
+
+    uint32_t PopRewardPercentage() const {return mPopRewardPercentage;}
+    int32_t PopRewardCoefficient() const {return mPopRewardCoefficient;}
+
 protected:
     CChainParams() {}
 
@@ -109,6 +118,12 @@ protected:
     CCheckpointData checkpointData;
     ChainTxData chainTxData;
     bool m_fallback_fee_enabled;
+
+    // VeriBlock:
+    // cut this % from coinbase subsidy
+    uint32_t mPopRewardPercentage = 40; // %
+    // every pop reward will be multiplied by this coefficient
+    int32_t mPopRewardCoefficient = 20;
 };
 
 /**

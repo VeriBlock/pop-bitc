@@ -19,6 +19,8 @@ struct RegtestingSetup : public TestingSetup {
 
 BOOST_FIXTURE_TEST_SUITE(blockencodings_tests, RegtestingSetup)
 
+#ifdef ENABLE_TESTS
+
 static CBlock BuildBlockTestCase() {
     CBlock block;
     CMutableTransaction tx;
@@ -319,6 +321,8 @@ BOOST_AUTO_TEST_CASE(EmptyBlockRoundTripTest)
         BOOST_CHECK(!mutated);
     }
 }
+
+#endif // ENABLE_TESTS
 
 BOOST_AUTO_TEST_CASE(TransactionsRequestSerializationTest) {
     BlockTransactionsRequest req1;

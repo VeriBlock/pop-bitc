@@ -42,6 +42,7 @@
 #include <atomic>
 #include <boost/thread/thread.hpp>
 #include <univalue.h>
+#include <vbk/params.hpp>
 
 namespace interfaces {
 namespace {
@@ -55,7 +56,11 @@ class NodeImpl : public Node
     void readConfigFile(const std::string& conf_path) override { gArgs.ReadConfigFile(conf_path); }
     bool softSetArg(const std::string& arg, const std::string& value) override { return gArgs.SoftSetArg(arg, value); }
     bool softSetBoolArg(const std::string& arg, bool value) override { return gArgs.SoftSetBoolArg(arg, value); }
-    void selectParams(const std::string& network) override { SelectParams(network); }
+    void selectParams(const std::string& network) override
+    {
+        SelectParams(network);
+        VeriBlock::selectPopConfig(gArgs);
+    }
     std::string getNetwork() override { return Params().NetworkIDString(); }
     void initLogging() override { InitLogging(); }
     void initParameterInteraction() override { InitParameterInteraction(); }

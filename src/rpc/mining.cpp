@@ -7,6 +7,7 @@
 #include <chain.h>
 #include <chainparams.h>
 #include <consensus/consensus.h>
+#include <consensus/merkle.h>
 #include <consensus/params.h>
 #include <consensus/validation.h>
 #include <core_io.h>
@@ -31,6 +32,8 @@
 
 #include <memory>
 #include <stdint.h>
+
+#include <vbk/pop_service.hpp>
 
 unsigned int ParseConfirmTarget(const UniValue& value)
 {
@@ -197,8 +200,6 @@ UniValue getmininginfo(const JSONRPCRequest& request)
 
 
     LOCK(cs_main);
-
-    CBlockIndex* const pindexPrev = chainActive.Tip();
 
     UniValue obj(UniValue::VOBJ);
     obj.push_back(Pair("blocks",             (int)chainActive.Height()));
@@ -397,6 +398,22 @@ UniValue getblocktemplate(const JSONRPCRequest& request)
             "  \"curtime\" : ttt,                  (numeric) current timestamp in seconds since epoch (Jan 1 1970 GMT)\n"
             "  \"bits\" : \"xxxxxxxx\",              (string) compressed target of next block\n"
             "  \"height\" : n                      (numeric) The height of the next block\n"
+            "  \"default_witness_commitment\" : \"xxxx\" (string) coinbase witness commitment \n"
+            "  \"pop_context\" : {\n"
+            "    \"serialized\": \"xxx\"     (string) serialized version of AuthenticatedContextInfoContainer\n"
+            "    \"stateRoot\" : \"xxx\"     (string) Hex-encoded StateRoot=sha256d(txRoot, popDataRoot)\n"
+            "    \"context\"   : {\n"
+            "      \"height\"    : 123       (numeric) Current block height.\n"
+            "      \"firstPreviousKeystone\": \"xxx\"  (string) First previous keystone of current block.\n"
+            "      \"secondPreviousKeystone\": \"xxx\" (string) Second previous keystone of current block.\n"
+            "    }\n"
+            "  }\n"
+            "  \"pop_data_root\" : \"xxxx\"   (string) Merkle Root of PopData\n"
+            "  \"pop_data\" : { \"atvs\": [], \"vtbs\": [], \"vbkblocks\": [] }   (object) Valid POP data that must be included in next block in order they appear here (vbkblocks, vtbs, atvs).\n"
+            "  \"pop_payout\" : [                 (array) List of POP payouts that must be addedd to next coinbase in order they appear in array.\n"
+            "    \"payout_info\": \"...\",\n"
+            "    \"amount\": xxx\n"
+            "   ]\n"
             "}\n"
 
             "\nExamples:\n"
@@ -726,6 +743,29 @@ UniValue getblocktemplate(const JSONRPCRequest& request)
         result.pushKV("default_witness_commitment", HexStr(pblocktemplate->vchCoinbaseCommitment.begin(), pblocktemplate->vchCoinbaseCommitment.end()));
     }
 
+    //VeriBlock Data
+    auto& popctx = VeriBlock::GetPop();
+    pblock->popData = popctx.mempool->getPop();
+    const auto popDataRoot = pblock->popData.getMerkleRoot();
+    result.pushKV("pop_data_root", HexStr(popDataRoot.begin(), popDataRoot.end()));
+    auto txRoot = BlockMerkleRoot(*pblock, nullptr);
+    result.pushKV("tx_root", HexStr(txRoot));
+    result.pushKV("pop_data", altintegration::ToJSON<UniValue>(pblock->popData));
+    using altintegration::AuthenticatedContextInfoContainer;
+    auto authctx = AuthenticatedContextInfoContainer::createFromPrevious(txRoot.asVector(), popDataRoot, VeriBlock::GetAltBlockIndex(pindexPrev), VeriBlock::GetPop().config->getAltParams());
+    result.pushKV("pop_context", altintegration::ToJSON<UniValue>(authctx));
+
+    // pop rewards
+    UniValue popRewardsArray(UniValue::VARR);
+    VeriBlock::PoPRewards popRewards = VeriBlock::getPopRewards(*pindexPrev, Params());
+    for (const auto& itr : popRewards) {
+        UniValue popRewardValue(UniValue::VOBJ);
+        popRewardValue.pushKV("payout_info", HexStr(itr.first.begin(), itr.first.end()));
+        popRewardValue.pushKV("amount", itr.second);
+        popRewardsArray.push_back(popRewardValue);
+    }
+    result.pushKV("pop_rewards", popRewardsArray);
+
     return result;
 }
 
@@ -804,6 +844,7 @@ static UniValue submitblock(const JSONRPCRequest& request)
     submitblock_StateCatcher sc(block.GetHash());
     RegisterValidationInterface(&sc);
     bool fAccepted = ProcessNewBlock(Params(), blockptr, true, nullptr,false);
+    (void) fAccepted;
     UnregisterValidationInterface(&sc);
     if (fBlockPresent) {
 /*        if (fAccepted && !sc.found) {

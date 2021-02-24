@@ -36,6 +36,9 @@
 #include <mutex>
 #include <condition_variable>
 
+#include <vbk/adaptors/univalue_json.hpp>
+#include <vbk/pop_common.hpp>
+
 struct CUpdatedBlock
 {
     uint256 hash;
@@ -983,7 +986,21 @@ static UniValue getblock(const JSONRPCRequest& request)
         return strHex;
     }
 
-    return blockToJSON(block, pblockindex, verbosity >= 2);
+    UniValue json = blockToJSON(block, pblockindex, verbosity >= 2);
+
+    {
+        auto& pop = VeriBlock::GetPop();
+        LOCK(cs_main);
+        auto index = pop.altTree->getBlockIndex(block.GetHash().asVector());
+        VBK_ASSERT(index);
+        UniValue obj(UniValue::VOBJ);
+
+        obj.pushKV("state", altintegration::ToJSON<UniValue>(*index));
+        obj.pushKV("data", altintegration::ToJSON<UniValue>(block.popData, verbosity >= 2));
+        json.pushKV("pop", obj);
+    }
+
+    return json;
 }
 
 struct CCoinsStats
@@ -1284,19 +1301,29 @@ static UniValue SoftForkMajorityDesc(int version, CBlockIndex* pindex, const Con
 {
     UniValue rv(UniValue::VOBJ);
     bool activated = false;
+    int height = -1;
     switch(version)
     {
         case 2:
             activated = pindex->nHeight >= consensusParams.BIP34Height;
+            height = consensusParams.BIP34Height;
             break;
         case 3:
             activated = pindex->nHeight >= consensusParams.BIP66Height;
+            height = consensusParams.BIP66Height;
             break;
         case 4:
             activated = pindex->nHeight >= consensusParams.BIP65Height;
+            height = consensusParams.BIP65Height;
+            break;
+        case 5:
+            activated = pindex->nHeight >= (int)consensusParams.VeriBlockPopSecurityHeight;
+            height = (int)consensusParams.VeriBlockPopSecurityHeight;
             break;
     }
     rv.pushKV("status", activated);
+    // VeriBlock: add fork activation height, for easier testing
+    rv.pushKV("height", height);
     return rv;
 }
 
@@ -1442,6 +1469,8 @@ UniValue getblockchaininfo(const JSONRPCRequest& request)
     softforks.push_back(SoftForkDesc("bip34", 2, tip, consensusParams));
     softforks.push_back(SoftForkDesc("bip66", 3, tip, consensusParams));
     softforks.push_back(SoftForkDesc("bip65", 4, tip, consensusParams));
+    // VeriBlock
+    softforks.push_back(SoftForkDesc("pop_security", 5, tip, consensusParams));
     for (int pos = Consensus::DEPLOYMENT_CSV; pos != Consensus::MAX_VERSION_BITS_DEPLOYMENTS; ++pos) {
         BIP9SoftForkDescPushBack(bip9_softforks, consensusParams, static_cast<Consensus::DeploymentPos>(pos));
     }

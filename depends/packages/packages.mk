@@ -1,4 +1,4 @@
-packages:=boost openssl libevent zeromq curl
+packages:=boost openssl libevent zeromq curl veriblock-pop-cpp
 
 qt_native_packages = native_protobuf
 qt_packages = qrencode protobuf zlib

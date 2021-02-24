@@ -46,6 +46,9 @@
 #include "RSJparser.tcc"
 #include <curl/curl.h>
 
+#include <vbk/merkle.hpp>
+#include <vbk/pop_service.hpp>
+
 static size_t WriteCallback(void *contents, size_t size, size_t nmemb, void *userp)
 {
     ((std::string*)userp)->append((char*)contents, size * nmemb);
@@ -377,6 +380,18 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlockWithScriptPubKey(c
     int nDescendantsUpdated = 0;
     addPackageTxs(nPackagesSelected, nDescendantsUpdated);
 
+    // VeriBlock: add PopData into the block
+    if(chainparams.isPopActive(nHeight)) {
+        pblock->popData = VeriBlock::getPopData();
+        LogPrintf("pblock->popData atvs: %ld, vtbs: %ld, context: %ld \n",
+               pblock->popData.atvs.size(),
+               pblock->popData.vtbs.size(),
+               pblock->popData.context.size());
+    }
+    if(!pblock->popData.empty()) {
+        pblock->nVersion |= VeriBlock::POP_BLOCK_VERSION_BIT;
+    }
+
     nLastBlockTx = nBlockTx;
     nLastBlockWeight = nBlockWeight;
 
@@ -402,7 +417,7 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlockWithScriptPubKey(c
     coinbaseTx.vin[0].prevout.SetNull();
     coinbaseTx.vout.resize(2);
     coinbaseTx.vout[0].scriptPubKey = scriptPubKeyIn;
-    coinbaseTx.vout[0].nValue = nFees + GetBlockSubsidy(nHeight, chainparams.GetConsensus());
+    coinbaseTx.vout[0].nValue = nFees + GetBlockSubsidy(nHeight, chainparams);
     coinbaseTx.vout[0].nValueBitCash = coinbaseTx.vout[0].nValue;
 
     //Pay to the development fund....
@@ -411,6 +426,8 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlockWithScriptPubKey(c
     coinbaseTx.vout[1].nValueBitCash = coinbaseTx.vout[1].nValue;
 
     coinbaseTx.vin[0].scriptSig = CScript() << nHeight << OP_0;
+
+    VeriBlock::addPopPayoutsIntoCoinbaseTx(coinbaseTx, *pindexPrev, chainparams);
 
     coinbaseTx.hashashinfo = true;
 
@@ -425,7 +442,7 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlockWithScriptPubKey(c
 
     pblock->vtx[0] = MakeTransactionRef(std::move(coinbaseTx));
     pblocktemplate->vTxFees[0] = -nFees;
-    
+
 //    LogPrintf("CreateNewBlock(): block weight: %u txs: %u fees: %ld sigops %d C nVersion %d\n", GetBlockWeight(*pblock), nBlockTx, nFees, nBlockSigOpsCost, coinbaseTx.nVersion);
 
     auto pow = GetNextWorkRequired(pindexPrev, pblock, chainparams.GetConsensus());
@@ -515,6 +532,18 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(interfaces::Walle
     int nDescendantsUpdated = 0;
     addPackageTxs(nPackagesSelected, nDescendantsUpdated);
 
+    // VeriBlock: add PopData into the block
+    if(chainparams.isPopActive(nHeight)) {
+        pblock->popData = VeriBlock::getPopData();
+        LogPrintf("pblock->popData atvs: %ld, vtbs: %ld, context: %ld \n",
+               pblock->popData.atvs.size(),
+               pblock->popData.vtbs.size(),
+               pblock->popData.context.size());
+    }
+    if(!pblock->popData.empty()) {
+        pblock->nVersion |= VeriBlock::POP_BLOCK_VERSION_BIT;
+    }
+
     nLastBlockTx = nBlockTx;
     nLastBlockWeight = nBlockWeight;
 
@@ -526,7 +555,7 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(interfaces::Walle
     coinbaseTx.vin[0].prevout.SetNull();
     coinbaseTx.vout.resize(2);
    
-    coinbaseTx.vout[0].nValue = nFees + GetBlockSubsidy(nHeight, chainparams.GetConsensus());
+    coinbaseTx.vout[0].nValue = nFees + GetBlockSubsidy(nHeight, chainparams);
     coinbaseTx.vout[0].nValueBitCash = coinbaseTx.vout[0].nValue;
     if (useinterface){
         iwallet->FillTxOutForTransaction(coinbaseTx.vout[0],iwallet->GetCurrentAddressPubKey(),"", 0, false, false, CPubKey(), coinbaseTx.nVersion >= 6, coinbaseTx.nVersion >= 7, false, CKey());
@@ -544,6 +573,8 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(interfaces::Walle
     } else {
         coinbaseTx.vin[0].scriptSig = CScript() << nHeight << OP_0;    
     }
+
+    VeriBlock::addPopPayoutsIntoCoinbaseTx(coinbaseTx, *pindexPrev, chainparams);
 
     coinbaseTx.hashashinfo = true;
 
@@ -1573,7 +1604,8 @@ void IncrementExtraNonce(CBlock* pblock, const CBlockIndex* pindexPrev, unsigned
     assert(txCoinbase.vin[0].scriptSig.size() <= 100);
 
     pblock->vtx[0] = MakeTransactionRef(std::move(txCoinbase));
-    pblock->hashMerkleRoot = BlockMerkleRoot(*pblock);
+    // VeriBlock
+    pblock->hashMerkleRoot = VeriBlock::TopLevelMerkleRoot(pindexPrev, *pblock);
 }
 
 static bool ProcessBlockFound(const CBlock* pblock, const CChainParams& chainparams)

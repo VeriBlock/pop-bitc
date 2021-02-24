@@ -311,6 +311,8 @@ BOOST_AUTO_TEST_CASE(script_standard_ExtractDestinations)
     BOOST_CHECK(!ExtractDestinations(s, whichType, addresses, nRequired));
 }
 
+#ifdef ENABLE_TESTS
+
 BOOST_AUTO_TEST_CASE(script_standard_GetScriptFor_)
 {
     CKey keys[3];
@@ -739,5 +741,7 @@ BOOST_AUTO_TEST_CASE(script_standard_IsMine)
         BOOST_CHECK(!isInvalid);
     }
 }
+
+#endif // ENABLE_TESTS
 
 BOOST_AUTO_TEST_SUITE_END()

@@ -21,6 +21,7 @@
 #include <util.h>
 #include <utilmoneystr.h>
 #include <utilstrencodings.h>
+#include <vbk/params.hpp>
 
 #include <memory>
 #include <stdio.h>
@@ -66,6 +67,8 @@ static int AppInitRawTx(int argc, char* argv[])
     // Check for -testnet or -regtest parameter (Params() calls are only valid after this clause)
     try {
         SelectParams(gArgs.GetChainName());
+        // VeriBlock
+        VeriBlock::selectPopConfig(gArgs, gArgs.GetChainName(), gArgs.GetChainName());
     } catch (const std::exception& e) {
         fprintf(stderr, "Error: %s\n", e.what());
         return EXIT_FAILURE;

@@ -83,12 +83,17 @@ struct TestChain100Setup : public TestingSetup {
     // Create a new block with just given transactions, coinbase paying to
     // scriptPubKey, and try to add it to the current chain.
     CBlock CreateAndProcessBlock(const std::vector<CMutableTransaction>& txns,
-                                 const CScript& scriptPubKey);
+                                 const CScript& scriptPubKey, bool* isBlockValid = nullptr);
+
+    CBlock CreateAndProcessBlock(const std::vector<CMutableTransaction>& txns, uint256 prevBlock,
+                                 const CScript& scriptPubKey, bool* isBlockValid = nullptr);
 
     ~TestChain100Setup();
 
     std::vector<CTransactionRef> m_coinbase_txns; // For convenience, coinbase transactions
     CKey coinbaseKey; // private/public key needed to spend coinbase transactions
+    // VeriBlock: make nonce global to avoid duplicate block hashes
+    unsigned int extraNonce = 0;
 };
 
 class CTxMemPoolEntry;

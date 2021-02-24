@@ -25,8 +25,18 @@ BITCASH_TEST_SUITE = \
   test/test_bitcash.h \
   test/test_bitcash.cpp
 
+# VeriBlock
+VBK_TESTS =\
+  vbk/test/unit/e2e_poptx_tests.cpp \
+  vbk/test/unit/block_validation_tests.cpp \
+  vbk/test/unit/vbk_merkle_tests.cpp \
+  vbk/test/unit/pop_reward_tests.cpp \
+  vbk/test/unit/forkresolution_tests.cpp \
+  vbk/test/unit/rpc_service_tests.cpp
+
 # test_bitcash binary #
 BITCASH_TESTS =\
+  $(VBK_TESTS) \
   test/arith_uint256_tests.cpp \
   test/scriptnum10.h \
   test/addrman_tests.cpp \
@@ -83,9 +93,6 @@ BITCASH_TESTS =\
   test/timedata_tests.cpp \
   test/torcontrol_tests.cpp \
   test/transaction_tests.cpp \
-  test/txindex_tests.cpp \
-  test/txvalidation_tests.cpp \
-  test/txvalidationcache_tests.cpp \
   test/versionbits_tests.cpp \
   test/uint256_tests.cpp \
   test/util_tests.cpp
@@ -93,9 +100,7 @@ BITCASH_TESTS =\
 if ENABLE_WALLET
 BITCASH_TESTS += \
   wallet/test/accounting_tests.cpp \
-  wallet/test/wallet_tests.cpp \
-  wallet/test/wallet_crypto_tests.cpp \
-  wallet/test/coinselector_tests.cpp
+  wallet/test/wallet_crypto_tests.cpp
 
 BITCASH_TEST_SUITE += \
   wallet/test/wallet_test_fixture.cpp \
@@ -108,8 +113,8 @@ test_test_bitcash_LDADD =
 if ENABLE_WALLET
 test_test_bitcash_LDADD += $(LIBBITCASH_WALLET)
 endif
-test_test_bitcash_LDADD += $(LIBBITCASH_SERVER) $(LIBBITCASH_CLI) $(LIBBITCASH_COMMON) $(LIBBITCASH_UTIL) $(LIBBITCASH_CONSENSUS) $(LIBBITCASH_CRYPTO) $(LIBUNIVALUE) \
-  $(LIBLEVELDB) $(LIBLEVELDB_SSE42) $(LIBMEMENV) $(BOOST_LIBS) $(BOOST_UNIT_TEST_FRAMEWORK_LIB) $(LIBSECP256K1) $(EVENT_LIBS) $(EVENT_PTHREADS_LIBS)
+test_test_bitcash_LDADD += $(VERIBLOCK_POP_CPP_LIBS) $(LIBBITCASH_SERVER) $(LIBBITCASH_CLI) $(LIBBITCASH_COMMON) $(LIBBITCASH_UTIL) $(LIBBITCASH_CONSENSUS) $(LIBBITCASH_CRYPTO) $(LIBUNIVALUE) \
+  $(LIBLEVELDB) $(LIBLEVELDB_SSE42) $(LIBMEMENV) $(BOOST_LIBS) $(BOOST_UNIT_TEST_FRAMEWORK_LIB) $(LIBSECP256K1) $(EVENT_LIBS) $(EVENT_PTHREADS_LIBS) $(VERIBLOCK_POP_CPP_LIBS) $(CURL_LIBS)
 test_test_bitcash_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
 
 test_test_bitcash_LDADD += $(LIBBITCASH_CONSENSUS) $(BDB_LIBS) $(SSL_LIBS) $(CRYPTO_LIBS) $(MINIUPNPC_LIBS)
@@ -128,6 +133,7 @@ test_test_bitcash_fuzzy_LDFLAGS = $(RELDFLAGS) $(AM_LDFLAGS) $(LIBTOOL_APP_LDFLA
 
 test_test_bitcash_fuzzy_LDADD = \
   $(LIBUNIVALUE) \
+  $(VERIBLOCK_POP_CPP_LIBS) \
   $(LIBBITCASH_SERVER) \
   $(LIBBITCASH_COMMON) \
   $(LIBBITCASH_UTIL) \
@@ -135,7 +141,7 @@ test_test_bitcash_fuzzy_LDADD = \
   $(LIBBITCASH_CRYPTO) \
   $(LIBSECP256K1)
 
-test_test_bitcash_fuzzy_LDADD += $(BOOST_LIBS) $(CRYPTO_LIBS)
+test_test_bitcash_fuzzy_LDADD += $(BOOST_LIBS) $(CRYPTO_LIBS) $(VERIBLOCK_POP_CPP_LIBS)
 #
 
 nodist_test_test_bitcash_SOURCES = $(GENERATED_TEST_FILES)
@@ -155,11 +161,8 @@ bitcash_test_clean : FORCE
 	rm -f $(CLEAN_BITCASH_TEST) $(test_test_bitcash_OBJECTS) $(TEST_BINARY)
 
 check-local: $(BITCASH_TESTS:.cpp=.cpp.test)
-	@echo "Running test/util/bitcash-util-test.py..."
-	$(PYTHON) $(top_builddir)/test/util/bitcash-util-test.py
 	@echo "Running test/util/rpcauth-test.py..."
 	$(PYTHON) $(top_builddir)/test/util/rpcauth-test.py
-	$(AM_V_at)$(MAKE) $(AM_MAKEFLAGS) -C secp256k1 check
 if EMBEDDED_UNIVALUE
 	$(AM_V_at)$(MAKE) $(AM_MAKEFLAGS) -C univalue check
 endif

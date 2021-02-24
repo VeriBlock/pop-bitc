@@ -1,5 +1,7 @@
 *.tar.gz
 
+.vscode
+
 *.exe
 src/bitcash
 src/bitcashd

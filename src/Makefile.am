@@ -70,6 +70,21 @@ if BUILD_BITCASH_UTILS
   bin_PROGRAMS += bitcash-cli bitcash-tx
 endif
 
+### VeriBlock section start
+VBK_H = \
+  vbk/bootstraps.hpp \
+  vbk/pop_common.hpp \
+  vbk/pop_service.hpp \
+  vbk/merkle.hpp \
+  vbk/util.hpp \
+  vbk/vbk.hpp \
+  vbk/adaptors/univalue_json.hpp \
+  vbk/adaptors/block_batch_adaptor.hpp \
+  vbk/adaptors/payloads_provider.hpp
+
+### VeriBlock section end
+
+
 .PHONY: FORCE check-symbols check-security
 # bitcash core #
 BITCASH_CORE_H = \
@@ -194,6 +209,8 @@ libbitcash_util_a-clientversion.$(OBJEXT): obj/build.h
 libbitcash_server_a_CPPFLAGS = $(AM_CPPFLAGS) $(BITCASH_INCLUDES) $(MINIUPNPC_CPPFLAGS) $(EVENT_CFLAGS) $(EVENT_PTHREADS_CFLAGS) $(CURL_CFLAGS)
 libbitcash_server_a_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
 libbitcash_server_a_SOURCES = \
+  vbk/pop_service.hpp \
+  vbk/pop_service.cpp \
   addrdb.cpp \
   addrman.cpp \
   bloom.cpp \
@@ -208,17 +225,18 @@ libbitcash_server_a_SOURCES = \
   dbwrapper.cpp \
   merkleblock.cpp \
   miner.cpp \
-  cuckoo/cuckoo.cpp \
-  cuckoo/miner.cpp \
   net.cpp \
   net_processing.cpp \
   noui.cpp \
   policy/fees.cpp \
   policy/policy.cpp \
   policy/rbf.cpp \
-  pow.cpp \
   rest.cpp \
   stratum.cpp \
+  vbk/rpc_register.hpp \
+  vbk/rpc_register.cpp \
+  vbk/p2p_sync.hpp \
+  vbk/p2p_sync.cpp \
   rpc/blockchain.cpp \
   rpc/mining.cpp \
   rpc/misc.cpp \
@@ -352,11 +370,18 @@ endif
 libbitcash_common_a_CPPFLAGS = $(AM_CPPFLAGS) $(BITCASH_INCLUDES)
 libbitcash_common_a_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
 libbitcash_common_a_SOURCES = \
+  vbk/pop_common.hpp \
+  vbk/pop_common.cpp \
+  vbk/bootstraps.cpp \
+  vbk/params.hpp \
+  vbk/params.cpp \
   base58.cpp \
   bech32.cpp \
   chainparams.cpp \
   coins.cpp \
   compressor.cpp \
+  cuckoo/cuckoo.cpp \
+  cuckoo/miner.cpp \
   core_read.cpp \
   core_write.cpp \
   key.cpp \
@@ -380,6 +405,7 @@ libbitcash_common_a_SOURCES = \
   consensus/validation.h \
   hash.cpp \
   hash.h \
+  pow.cpp \
   prevector.h \
   primitives/block.cpp \
   primitives/block.h \
@@ -401,6 +427,10 @@ libbitcash_common_a_SOURCES = \
   uint256.h \
   utilstrencodings.cpp \
   utilstrencodings.h \
+  vbk/genesis_common.hpp \
+  vbk/genesis_common.cpp \
+  vbk/merkle.hpp \
+  vbk/merkle.cpp \
   version.h \
   $(BITCASH_CORE_H)
 
@@ -457,6 +487,7 @@ bitcashd_SOURCES += bitcashd-res.rc
 endif
 
 bitcashd_LDADD = \
+  $(VERIBLOCK_POP_CPP_LIBS) \
   $(LIBBITCASH_SERVER) \
   $(LIBBITCASH_WALLET) \
   $(LIBBITCASH_COMMON) \
@@ -469,7 +500,7 @@ bitcashd_LDADD = \
   $(LIBMEMENV) \
   $(LIBSECP256K1)
 
-bitcashd_LDADD += $(BOOST_LIBS) $(BDB_LIBS) $(SSL_LIBS) $(CURL_LIBS) $(CRYPTO_LIBS) $(MINIUPNPC_LIBS) $(EVENT_PTHREADS_LIBS) $(EVENT_LIBS) $(ZMQ_LIBS) $(DL_LIBS)
+bitcashd_LDADD += $(BOOST_LIBS) $(BDB_LIBS) $(SSL_LIBS) $(CURL_LIBS) $(CRYPTO_LIBS) $(MINIUPNPC_LIBS) $(EVENT_PTHREADS_LIBS) $(EVENT_LIBS) $(ZMQ_LIBS) $(VERIBLOCK_POP_CPP_LIBS)  $(DL_LIBS)
 
 # bitcash-cli binary #
 bitcash_cli_SOURCES = bitcash-cli.cpp
@@ -485,7 +516,8 @@ bitcash_cli_LDADD = \
   $(LIBBITCASH_CLI) \
   $(LIBUNIVALUE) \
   $(LIBBITCASH_UTIL) \
-  $(LIBBITCASH_CRYPTO)
+  $(LIBBITCASH_CRYPTO) \
+  $(VERIBLOCK_POP_CPP_LIBS)
 
 bitcash_cli_LDADD += $(BOOST_LIBS) $(SSL_LIBS) $(CRYPTO_LIBS) $(EVENT_LIBS)
 #
@@ -503,12 +535,14 @@ endif
 
 bitcash_tx_LDADD = \
   $(LIBUNIVALUE) \
+  $(VERIBLOCK_POP_CPP_LIBS) \
+  $(LIBBITCASH_SERVER) \
   $(LIBBITCASH_COMMON) \
   $(LIBBITCASH_UTIL) \
   $(LIBBITCASH_CRYPTO) \
-   $(LIBSECP256K1)
+  $(LIBSECP256K1)
 
-bitcash_tx_LDADD += $(BOOST_LIBS) $(CRYPTO_LIBS)
+bitcash_tx_LDADD += $(BOOST_LIBS) $(VERIBLOCK_POP_CPP_LIBS) $(CRYPTO_LIBS)
 #
 
 CTAES_DIST =  crypto/ctaes/bench.c
@@ -576,7 +610,7 @@ include Makefile.leveldb.include
 endif
 
 if ENABLE_TESTS
-#include Makefile.test.include
+include Makefile.test.include
 endif
 
 if ENABLE_BENCH

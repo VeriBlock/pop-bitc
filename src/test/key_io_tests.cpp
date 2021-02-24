@@ -19,6 +19,8 @@ extern UniValue read_json(const std::string& jsondata);
 
 BOOST_FIXTURE_TEST_SUITE(key_io_tests, BasicTestingSetup)
 
+#ifdef ENABLE_TESTS
+
 // Goal: check that parsed keys match test payload
 BOOST_AUTO_TEST_CASE(key_io_valid_parse)
 {
@@ -117,6 +119,7 @@ BOOST_AUTO_TEST_CASE(key_io_valid_gen)
     SelectParams(CBaseChainParams::MAIN);
 }
 
+#endif // ENABLE_TESTS
 
 // Goal: check that base58 parsing code is robust against a variety of corrupted data
 BOOST_AUTO_TEST_CASE(key_io_invalid)

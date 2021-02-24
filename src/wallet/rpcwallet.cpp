@@ -179,7 +179,7 @@ static UniValue createcoinbaseforaddress(const JSONRPCRequest& request)
     coinbaseTx.vin.resize(1);
     coinbaseTx.vin[0].prevout.SetNull();
     coinbaseTx.vout.resize(2);
-    coinbaseTx.vout[0].nValue = GetBlockSubsidy(nHeight, Params().GetConsensus());
+    coinbaseTx.vout[0].nValue = GetBlockSubsidy(nHeight, Params());
     pwallet->FillTxOutForTransaction(coinbaseTx.vout[0], destination, "", 0, coinbaseTx.nVersion >= 6, coinbaseTx.nVersion >= 7, false, CKey());
 
     //Pay to the development fund....
@@ -285,7 +285,7 @@ static UniValue createcoinbaseforaddresswithpoolfee(const JSONRPCRequest& reques
     coinbaseTx.vin[0].prevout.SetNull();
     coinbaseTx.vout.resize(3);
    
-    CAmount amount=GetBlockSubsidy(nHeight, Params().GetConsensus());
+    CAmount amount=GetBlockSubsidy(nHeight, Params());
     CAmount poolfee=amount*poolfeepermille/1000;
     amount-=poolfee;
 

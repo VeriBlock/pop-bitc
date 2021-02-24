@@ -116,6 +116,8 @@ static void CheckSort(CTxMemPool &pool, std::vector<std::string> &sortedOrder)
     }
 }
 
+#ifdef ENABLE_TESTS
+
 BOOST_AUTO_TEST_CASE(MempoolIndexingTest)
 {
     CTxMemPool pool;
@@ -570,5 +572,7 @@ BOOST_AUTO_TEST_CASE(MempoolSizeLimitTest)
 
     SetMockTime(0);
 }
+
+#endif // ENABLE_TESTS
 
 BOOST_AUTO_TEST_SUITE_END()

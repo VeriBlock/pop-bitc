@@ -974,6 +974,8 @@ BOOST_AUTO_TEST_CASE(test_FormatSubVersion)
     BOOST_CHECK_EQUAL(FormatSubVersion("Test", 99900, comments2),std::string("/Test:0.9.99(comment1; Comment2; .,_?@-; )/"));
 }
 
+#ifdef ENABLE_TESTS
+
 BOOST_AUTO_TEST_CASE(test_ParseFixedPoint)
 {
     int64_t amount = 0;
@@ -1038,6 +1040,8 @@ BOOST_AUTO_TEST_CASE(test_ParseFixedPoint)
     BOOST_CHECK(!ParseFixedPoint("1.1e-", 6, &amount));
     BOOST_CHECK(!ParseFixedPoint("1.", 6, &amount));
 }
+
+#endif // ENABLE_TESTS
 
 static void TestOtherThread(fs::path dirname, std::string lockname, bool *result)
 {
