@@ -20,11 +20,6 @@ bool usemasterkeydummyonly;
 bool usepriceranges;
 bool usehashforcoinbase;
 
-COutPoint CTxInMintCoins()
-{ 
-    return COutPoint(uint256S("0x8ff824bc420ab27e8b47f02c058aa804236e701d09019851cbab1240b7bce292"), 0);
-}
-
 std::string COutPoint::ToString() const
 {
     return strprintf("COutPoint(%s, %u)", hash.ToString().substr(0,10), n);

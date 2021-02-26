@@ -136,23 +136,23 @@ public:
         consensus.vDeployments[Consensus::DEPLOYMENT_SEGWIT].nStartTime = Consensus::BIP9Deployment::ALWAYS_ACTIVE;
         consensus.vDeployments[Consensus::DEPLOYMENT_SEGWIT].nTimeout = Consensus::BIP9Deployment::NO_TIMEOUT;
         consensus.nCuckooProofSize = 42;
-        consensus.X16RTIME = 1550923200;               //Time of X16R fork
-        consensus.NONPRIVACY = 1552176000;             //Time of nonprivacy
-        consensus.STABLETIME = 1561204800;             //Time of Stable coin fork
-        consensus.MASTERKEYDUMMY = 1563876000;         //Time of removal of Master key
-        consensus.X16RV2TIME = 1569664800;             //Time of X16RV2 fork
-        consensus.GPUMINERTIME = 1570356000;           //Time of fork which activates the GPU miner again
-        consensus.GOLDTIME = 1573984800;               //Time of BitCash gold activation
-        consensus.X25XTIME = 1583056800;               //Time of X25X fork
-        consensus.DEACTIVATEDOLLAR = 1593331200;       //Time of fork to deactivate new Dollar transactions
-        consensus.DEACTIVATEPRICESERVERS = 1598083200; //Time of fork to deactivate the price servers
-
+        consensus.X16RTIME = 1550923200;//Time of X16R fork
+        consensus.NONPRIVACY = 1552176000;//Time of nonprivacy
+        consensus.STABLETIME = 1561204800;//Time of Stable coin fork
+        consensus.MASTERKEYDUMMY = 1563876000;//Time of removal of Master key
+        consensus.X16RV2TIME = 1569664800;//Time of X16RV2 fork
+        consensus.GPUMINERTIME = 1570356000;//Time of fork which activates the GPU miner again
+        consensus.GOLDTIME = 1573984800;//Time of BitCash gold activation
+        consensus.X25XTIME = 1583056800;//Time of X25X fork
+        consensus.DEACTIVATEDOLLAR = 1593331200;//Time of fork to deactivate new Dollar transactions
+        consensus.DEACTIVATEPRICESERVERS = 1598083200;//Time of fork to deactivate the price servers
+        consensus.mintTxOut = uint256S("0xbc131082a5e69a97e94e61f2dac7aa7e152f700d11b9d82b1906efe10e6a55f5"); 
 
         // VeriBlock
         // TODO: should determine the correct height
         consensus.VeriBlockPopSecurityHeight = -1;
 
-        // The best chain should have at least this much work.
+        // The best chain should have at least this much work.                                                
         consensus.nMinimumChainWork = uint256S("0x00");
 
         // By default assume that the signatures in ancestors of this block are valid.
@@ -374,16 +374,17 @@ public:
         consensus.vDeployments[Consensus::DEPLOYMENT_SEGWIT].nStartTime = Consensus::BIP9Deployment::ALWAYS_ACTIVE;
         consensus.vDeployments[Consensus::DEPLOYMENT_SEGWIT].nTimeout = Consensus::BIP9Deployment::NO_TIMEOUT;
         consensus.nCuckooProofSize = 42;
-        consensus.X16RTIME = 1549108800;               //Time of X16R fork
-        consensus.NONPRIVACY = 1552176000;             //Time of nonprivacy
-        consensus.STABLETIME = 1559302200;             //Time of Stable coin fork
-        consensus.MASTERKEYDUMMY = 1561992300;         //Time of removal of Master key
-        consensus.X16RV2TIME = 1567776051;             //Time of X16RV2 fork
-        consensus.GPUMINERTIME = 1569872820;           //Time of fork which activates the GPU miner again
-        consensus.GOLDTIME = 1573984800;               //Time of BitCash gold activation
-        consensus.X25XTIME = 1581238003;               //Time of X25X fork
-        consensus.DEACTIVATEDOLLAR = 1592915126;       //Time of fork to deactivate new Dollar transactions
-        consensus.DEACTIVATEPRICESERVERS = 1596702228; //Time of fork to deactivate the price servers
+        consensus.X16RTIME = 1549108800;//Time of X16R fork
+        consensus.NONPRIVACY = 1552176000;//Time of nonprivacy
+        consensus.STABLETIME = 1559302200;//Time of Stable coin fork
+        consensus.MASTERKEYDUMMY = 1561992300;//Time of removal of Master key
+        consensus.X16RV2TIME = 1567776051;//Time of X16RV2 fork
+        consensus.GPUMINERTIME = 1569872820;//Time of fork which activates the GPU miner again
+        consensus.GOLDTIME = 1573984800;//Time of BitCash gold activation
+        consensus.X25XTIME = 1581238003;//Time of X25X fork
+        consensus.DEACTIVATEDOLLAR = 1592915126;//Time of fork to deactivate new Dollar transactions 
+        consensus.DEACTIVATEPRICESERVERS = 1596702228;//Time of fork to deactivate the price servers
+        consensus.mintTxOut = uint256S("0x8ff824bc420ab27e8b47f02c058aa804236e701d09019851cbab1240b7bce292");
 
         // VeriBlock
         consensus.VeriBlockPopSecurityHeight = 200;
@@ -553,16 +554,17 @@ public:
         consensus.vDeployments[Consensus::DEPLOYMENT_SEGWIT].nStartTime = Consensus::BIP9Deployment::ALWAYS_ACTIVE;
         consensus.vDeployments[Consensus::DEPLOYMENT_SEGWIT].nTimeout = Consensus::BIP9Deployment::NO_TIMEOUT;
         consensus.nCuckooProofSize = 42;
-        consensus.X16RTIME = 1549108800;               //Time of X16R fork
-        consensus.NONPRIVACY = 1551299320;             //Time of nonprivacy
-        consensus.STABLETIME = 1561204800;             //Time of Stable coin fork
-        consensus.MASTERKEYDUMMY = 1561992300;         //Time of removal of Master key
-        consensus.X16RV2TIME = 1567776051;             //Time of X16RV2 fork
-        consensus.GPUMINERTIME = 1569872820;           //Time of fork which activates the GPU miner again
-        consensus.GOLDTIME = 1573984800;               //Time of BitCash gold activation
-        consensus.X25XTIME = 1581238003;               //Time of X25X fork
-        consensus.DEACTIVATEDOLLAR = 1592915126;       //Time of fork to deactivate new Dollar transactions
-        consensus.DEACTIVATEPRICESERVERS = 1596702228; //Time of fork to deactivate the price servers
+        consensus.X16RTIME = 1549108800;//Time of X16R fork
+        consensus.NONPRIVACY = 1551299320;//Time of nonprivacy
+        consensus.STABLETIME = 1561204800;//Time of Stable coin fork
+        consensus.MASTERKEYDUMMY = 1561992300;//Time of removal of Master key
+        consensus.X16RV2TIME = 1567776051;//Time of X16RV2 fork
+        consensus.GPUMINERTIME = 1569872820;//Time of fork which activates the GPU miner again
+        consensus.GOLDTIME = 1573984800;//Time of BitCash gold activation
+        consensus.X25XTIME = 1581238003;//Time of X25X fork
+        consensus.DEACTIVATEDOLLAR = 1592915126;//Time of fork to deactivate new Dollar transactions 
+        consensus.DEACTIVATEPRICESERVERS = 1596702228;//Time of fork to deactivate the price servers
+        consensus.mintTxOut = uint256S("0x8ff824bc420ab27e8b47f02c058aa804236e701d09019851cbab1240b7bce292");
 
         // VeriBlock
         // TODO: should determine the correct height

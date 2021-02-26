@@ -5211,13 +5211,12 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransac
 
             CTransactionRef tx;
             uint256 hashBlock = uint256();
-            if (!GetTransaction(CTxInMintCoins().hash, tx, Params().GetConsensus(), hashBlock, true)) {
+            if (!GetTransaction(Params().GetConsensus().mintTxOut, tx, Params().GetConsensus(), hashBlock, true)) {
                 strFailReason = _("Mint coin base TX not found");
                 return false;
             }
-            selected_coins.push_back(CInputCoin(tx,CTxInMintCoins().n));
-
-            //txNew.vin.push_back(CTxIn(CTxInMintCoins()/*COutPoint(uint256S("0x8ff824bc420ab27e8b47f02c058aa804236e701d09019851cbab1240b7bce292"), 0)*/, CScript(), nSequence)); 
+            selected_coins.push_back(CInputCoin(tx, 0));
+            
         }
         for (const auto& coin : selected_coins) {
             txNew.vin.push_back(CTxIn(coin.outpoint, CScript(), nSequence));        
