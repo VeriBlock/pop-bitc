@@ -188,7 +188,8 @@ public:
 
     bool isminttransaction() const
     {
-        return prevout == COutPoint(uint256S("0x8ff824bc420ab27e8b47f02c058aa804236e701d09019851cbab1240b7bce292"), 0);
+        return (prevout == COutPoint(uint256S("0x8ff824bc420ab27e8b47f02c058aa804236e701d09019851cbab1240b7bce292"), 0) ||//testnet
+                prevout == COutPoint(uint256S("0xbc131082a5e69a97e94e61f2dac7aa7e152f700d11b9d82b1906efe10e6a55f5"), 0));//mainnet
     }
 
     std::string ToString() const;
