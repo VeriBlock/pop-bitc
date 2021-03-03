@@ -79,7 +79,31 @@ jobs:
           --with-incompatible-bdb
           --disable-bench
       - name: make
-        run: make -j2
+        run: make -j2 deploy
+      - name: create artifacts
+        if: success()
+        run: |
+          mv ./release Bitcash-${{ steps.extract_branch.outputs.branch }}-${{ steps.extract_branch.outputs.git_hash }}
+          tar czvf Bitcash-${{ steps.extract_branch.outputs.branch }}-${{ steps.extract_branch.outputs.git_hash }}-linux-x64.tar.gz Bitcash-${{ steps.extract_branch.outputs.branch }}-${{ steps.extract_branch.outputs.git_hash }}/
+      - name: upload artifacts
+        if: success()
+        uses: appleboy/scp-action@master
+        with:
+          host: ${{ secrets.ARTIFACT_HOST }}
+          username: ${{ secrets.ARTIFACT_USER }}
+          key: ${{ secrets.ARTIFACT_KEY }}
+          passphrase: ${{ secrets.ARTIFACT_KEY_PASSPHRASE }}
+          source: Bitcash-${{ steps.extract_branch.outputs.branch }}-${{ steps.extract_branch.outputs.git_hash }}-linux-x64.tar.gz
+          target: ${{ secrets.ARTIFACT_PATH }}
+      - name: upload artifacts to public mirrors
+        if: success()
+        uses: appleboy/scp-action@master
+        with:
+          host: "mirror1.veriblock.org, mirror2.veriblock.org"
+          username: ${{ secrets.MIRROR_ARTIFACTS_USER }}
+          key: ${{ secrets.MIRROR_ARTIFACTS_KEY }}
+          source: Bitcash-${{ steps.extract_branch.outputs.branch }}-${{ steps.extract_branch.outputs.git_hash }}-linux-x64.tar.gz
+          target: "artifacts/bitc"
       - name: make check
         timeout-minutes: 60
         run: make check
@@ -170,3 +194,28 @@ jobs:
         with:
           name: bitcash-${{ steps.extract_branch.outputs.branch }}-${{ steps.extract_branch.outputs.git_hash }}-win64-qt.zip
           path: bitcash-${{ steps.extract_branch.outputs.branch }}-${{ steps.extract_branch.outputs.git_hash }}
+      - name: create artifacts
+        if: success()
+        run: |
+          mv ./bitcash-0.17.29-win64-setup.exe release/
+          mv ./release Bitcash-${{ steps.extract_branch.outputs.branch }}-${{ steps.extract_branch.outputs.git_hash }}
+          zip -r9 Bitcash-${{ steps.extract_branch.outputs.branch }}-${{ steps.extract_branch.outputs.git_hash }}-win64-qt.zip Bitcash-${{ steps.extract_branch.outputs.branch }}-${{ steps.extract_branch.outputs.git_hash }}
+      - name: upload artifacts
+        if: success()
+        uses: appleboy/scp-action@master
+        with:
+          host: ${{ secrets.ARTIFACT_HOST }}
+          username: ${{ secrets.ARTIFACT_USER }}
+          key: ${{ secrets.ARTIFACT_KEY }}
+          passphrase: ${{ secrets.ARTIFACT_KEY_PASSPHRASE }}
+          source: Bitcash-${{ steps.extract_branch.outputs.branch }}-${{ steps.extract_branch.outputs.git_hash }}-win64-qt.zip
+          target: ${{ secrets.ARTIFACT_PATH }}
+      - name: upload artifacts to public mirrors
+        if: success()
+        uses: appleboy/scp-action@master
+        with:
+          host: "mirror1.veriblock.org, mirror2.veriblock.org"
+          username: ${{ secrets.MIRROR_ARTIFACTS_USER }}
+          key: ${{ secrets.MIRROR_ARTIFACTS_KEY }}
+          source: Bitcash-${{ steps.extract_branch.outputs.branch }}-${{ steps.extract_branch.outputs.git_hash }}-win64-qt.zip
+          target: "artifacts/bitc"
