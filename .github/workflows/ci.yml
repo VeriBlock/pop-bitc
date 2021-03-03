@@ -197,7 +197,7 @@ jobs:
       - name: create artifacts
         if: success()
         run: |
-          zip -r9 Bitcash-${{ steps.extract_branch.outputs.branch }}-${{ steps.extract_branch.outputs.git_hash }}-win64-qt.zip Bitcash-${{ steps.extract_branch.outputs.branch }}-${{ steps.extract_branch.outputs.git_hash }}
+          zip -r9 bitcash-${{ steps.extract_branch.outputs.branch }}-${{ steps.extract_branch.outputs.git_hash }}-win64-qt.zip Bitcash-${{ steps.extract_branch.outputs.branch }}-${{ steps.extract_branch.outputs.git_hash }}
       - name: upload artifacts
         if: success()
         uses: appleboy/scp-action@master
