@@ -19,6 +19,7 @@ endif
 BITCASHD_BIN=$(top_builddir)/src/$(BITCASH_DAEMON_NAME)$(EXEEXT)
 BITCASH_QT_BIN=$(top_builddir)/src/qt/$(BITCASH_GUI_NAME)$(EXEEXT)
 BITCASH_CLI_BIN=$(top_builddir)/src/$(BITCASH_CLI_NAME)$(EXEEXT)
+BITCASH_TX_BIN=$(top_builddir)/src/$(BITCASH_TX_NAME)$(EXEEXT)
 BITCASH_WIN_INSTALLER=$(PACKAGE)-$(PACKAGE_VERSION)-win$(WINDOWS_BITS)-setup$(EXEEXT)
 
 empty :=
@@ -158,6 +159,23 @@ endif
 if TARGET_WINDOWS
 deploy: $(BITCASH_WIN_INSTALLER)
 endif
+if TARGET_LINUX
+if ENABLE_QT
+deploy: all-recursive
+	$(MKDIR_P) $(top_builddir)/release
+	STRIPPROG="$(STRIP)" $(INSTALL_STRIP_PROGRAM) $(BITCASHD_BIN) $(top_builddir)/release
+	STRIPPROG="$(STRIP)" $(INSTALL_STRIP_PROGRAM) $(BITCASH_QT_BIN) $(top_builddir)/release
+	STRIPPROG="$(STRIP)" $(INSTALL_STRIP_PROGRAM) $(BITCASH_CLI_BIN) $(top_builddir)/release
+	STRIPPROG="$(STRIP)" $(INSTALL_STRIP_PROGRAM) $(BITCASH_TX_BIN) $(top_builddir)/release
+else
+deploy: all-recursive
+	$(MKDIR_P) $(top_builddir)/release
+	STRIPPROG="$(STRIP)" $(INSTALL_STRIP_PROGRAM) $(BITCASHD_BIN) $(top_builddir)/release
+	STRIPPROG="$(STRIP)" $(INSTALL_STRIP_PROGRAM) $(BITCASH_CLI_BIN) $(top_builddir)/release
+	STRIPPROG="$(STRIP)" $(INSTALL_STRIP_PROGRAM) $(BITCASH_TX_BIN) $(top_builddir)/release
+endif
+endif
+
 
 $(BITCASH_QT_BIN): FORCE
 	$(MAKE) -C src qt/$(@F)
@@ -166,6 +184,12 @@ $(BITCASHD_BIN): FORCE
 	$(MAKE) -C src $(@F)
 
 $(BITCASH_CLI_BIN): FORCE
+	$(MAKE) -C src $(@F)
+
+$(BITCASH_TX_BIN): FORCE
+	$(MAKE) -C src $(@F)
+
+$(BITCASH_WALLET_BIN): FORCE
 	$(MAKE) -C src $(@F)
 
 if USE_LCOV
