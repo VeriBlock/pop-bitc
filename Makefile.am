@@ -189,9 +189,6 @@ $(BITCASH_CLI_BIN): FORCE
 $(BITCASH_TX_BIN): FORCE
 	$(MAKE) -C src $(@F)
 
-$(BITCASH_WALLET_BIN): FORCE
-	$(MAKE) -C src $(@F)
-
 if USE_LCOV
 LCOV_FILTER_PATTERN=-p "/usr/include/" -p "src/leveldb/" -p "src/bench/" -p "src/univalue" -p "src/crypto/ctaes" -p "src/secp256k1"
 
