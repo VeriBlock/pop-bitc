@@ -64,6 +64,9 @@ static bool AppInit(int argc, char* argv[])
     // If Qt is used, parameters/bitcash.conf are parsed in qt/bitcash.cpp's main()
     gArgs.ParseParameters(argc, argv);
 
+    printf("VERIBLOCK AppInit");
+    fdsafas
+
     // Process help and version before taking care about datadir
     if (HelpRequested(gArgs) || gArgs.IsArgSet("-version")) {
         std::string strUsage = strprintf(_("%s Daemon"), _(PACKAGE_NAME)) + " " + _("version") + " " + FormatFullVersion() + "\n";
