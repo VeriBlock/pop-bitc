@@ -1023,7 +1023,7 @@ bool AppInitParameterInteraction()
     if (!hashAssumeValid.IsNull())
         LogPrintf("Assuming ancestors of block %s have valid signatures.\n", hashAssumeValid.GetHex());
     else
-        LogPrintf("Validating signatures for all blocks. VERIBLOCK what is going on ?????\n");
+        LogPrintf("Validating signatures for all blocks.\n");
 
     if (gArgs.IsArgSet("-minimumchainwork")) {
         const std::string minChainWorkStr = gArgs.GetArg("-minimumchainwork", "");

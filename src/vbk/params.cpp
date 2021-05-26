@@ -156,8 +156,6 @@ void selectPopConfig(
 
 void selectPopConfig(const ArgsManager& args, std::string vbk, std::string btc)
 {
-    LogPrintf("VERIBLOCK selectPopConfig");
-
     std::string btcnet = args.GetArg("-popbtcnetwork", btc);
     std::string vbknet = args.GetArg("-popvbknetwork", vbk);
     int popautoconfig = args.GetArg("-popautoconfig", 1);
