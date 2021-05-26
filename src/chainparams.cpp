@@ -386,7 +386,7 @@ public:
         consensus.DEACTIVATEPRICESERVERS = 1596702228; //Time of fork to deactivate the price servers
 
         // VeriBlock
-        consensus.VeriBlockPopSecurityHeight = 200;
+        consensus.VeriBlockPopSecurityHeight = 51;
 
         // The best chain should have at least this much work.
         consensus.nMinimumChainWork = uint256S("0x00");
