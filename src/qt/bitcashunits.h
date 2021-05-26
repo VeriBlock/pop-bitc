@@ -60,7 +60,8 @@ public:
         mBITC,
         uBITC,
         DOLLAR,
-        GOLD
+        GOLD,
+        BITCOIN
     };
 
     enum SeparatorStyle

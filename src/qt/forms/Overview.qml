@@ -238,6 +238,13 @@ Item {
         totalLabelGo.text = total*/
     }
 
+    function setbalancesinternBi(avail, pending, immature, total) {
+        availLabelBi.text = avail
+        pendingLabelBi.text = pending
+        immatureLabelBi.text = immature
+        totalLabelBi.text = total
+    }
+
     function setpriceDointern(price, price2, pricegold) {
         /*priceLabelDo.text = price
         price2LabelDo.text = price2
@@ -482,6 +489,34 @@ Item {
         }
 
         Label {
+            id: availLabelBi
+            x: 285
+            y: 33
+            text: qsTr("32.950000000")
+            font.pixelSize: 14
+            font.family: "Montserrat SemiBold"
+            font.weight: Font.DemiBold
+            leftPadding: 0
+            anchors.top: availLabel.bottom
+            anchors.topMargin: 7
+            anchors.right: parent.right
+            anchors.rightMargin: 36
+            color: "#202124"
+        }
+
+        Label {
+            id: availbitcashiconBi
+            anchors.right: availLabelBi.left
+            anchors.rightMargin: 5
+            anchors.verticalCenter: availLabelBi.verticalCenter
+            font.pixelSize: 14
+            font.family: "Montserrat SemiBold"
+            font.weight: Font.DemiBold
+            color: "#202124"
+            text: qsTr("BTC")
+        }
+
+        Label {
             id: pendingLabel
             x: 282
             y: 104
@@ -506,6 +541,33 @@ Item {
                 font.weight: Font.DemiBold
                 color: "#202124"
                 text: qsTr("₡")
+            }
+        }
+
+        Label {
+            id: pendingLabelBi
+            anchors.top: pendingLabel.bottom
+            anchors.topMargin: 7
+            text: qsTr("8764332,956544566")
+            font.pixelSize: 14
+            font.family: "Montserrat SemiBold"
+            font.weight: Font.DemiBold
+            leftPadding: 0
+            horizontalAlignment: Text.AlignRight
+            anchors.right: parent.right
+            anchors.rightMargin: 36
+            color: "#202124"
+            Label {
+                id: pendingbitcashiconBi
+                anchors.right: pendingLabelBi.left
+                anchors.rightMargin: 5
+                anchors.verticalCenter: pendingLabelBi.verticalCenter
+
+                font.pixelSize: 14
+                font.family: "Montserrat SemiBold"
+                font.weight: Font.DemiBold
+                color: "#202124"
+                text: qsTr("BTC")
             }
         }
 
@@ -651,6 +713,45 @@ Item {
                 text: qsTr("₡")
             }
 
+            Label {
+                id: label3Bi
+                text: qsTr("Total Bitcoin balance")
+                font.pixelSize: 18
+                font.family: "Montserrat SemiBold"
+                font.weight: Font.DemiBold
+                anchors.top: totalLabel.bottom
+                anchors.topMargin: 0
+                anchors.left: parent.left
+                anchors.leftMargin: 36
+                color: "#212225"
+            }
+
+            Label {
+                id: totalLabelBi
+                text: qsTr("3345154,000000000")
+                font.pixelSize: 42
+                font.family: "Montserrat Light"
+                font.weight: Font.Light
+                leftPadding: 0
+                anchors.left: totalbitcashicon.right
+                anchors.leftMargin: 70
+                anchors.top: label3Bi.bottom
+                anchors.topMargin: 10
+                color: "#3e45ac"
+            }
+            Label {
+                id: totalbitcashiconBi
+                anchors.left: parent.left
+                anchors.leftMargin: 36
+                anchors.verticalCenter: totalLabelBi.verticalCenter
+
+                font.pixelSize: 42
+                font.family: "Montserrat Light"
+                font.weight: Font.Light
+                color: "#3e45ac"
+                text: qsTr("BTC")
+            }
+
 
         }
 
@@ -720,6 +821,36 @@ Item {
             anchors.top: pendingLabel.bottom
             anchors.topMargin: 50
             horizontalAlignment: Text.AlignRight            
+            anchors.right: parent.right
+            anchors.rightMargin: 36
+            color: "#202124"
+        }
+
+        Label {
+            id: immaturebitcashiconBi
+            anchors.right: immatureLabelBi.left
+            anchors.verticalCenter: immatureLabelBi.verticalCenter
+
+            font.pixelSize: 14
+            font.family: "Montserrat SemiBold"
+            font.weight: Font.DemiBold
+            color: "#202124"
+            text: qsTr("BTC")
+            anchors.rightMargin: 5
+        }
+
+
+        Label {
+            id: immatureLabelBi
+            x: 282
+            text: qsTr("2,453000")
+            font.pixelSize: 14
+            font.weight: Font.DemiBold
+            font.family: "Montserrat SemiBold"
+            leftPadding: 0
+            anchors.top: immatureLabel.bottom
+            anchors.topMargin: 7
+            horizontalAlignment: Text.AlignRight
             anchors.right: parent.right
             anchors.rightMargin: 36
             color: "#202124"
@@ -955,7 +1086,7 @@ Item {
                         Label {
                             width: amountgoldwidth
                             height: 44
-                            text: qsTr("Gold")
+                            text: qsTr("Bitcoin")
                             verticalAlignment: Text.AlignVCenter
                             bottomPadding: 10
                             rightPadding: 20
@@ -1123,7 +1254,7 @@ Item {
                             text: ""
                             clip: true
                             Label {
-                                text: transactionamountgold
+                                text: transactionamountbitcoin
                                 anchors.leftMargin: 8
                                 anchors.rightMargin: 20
                                 anchors.left: parent.left

@@ -840,7 +840,7 @@ Item {
                 RadioButton {
                     id: radioButton1
                     text: qsTr("Send BitCash")
-                    visible: false
+                    visible: true
                     font.pixelSize: 13
                     font.weight: Font.Normal
                     font.family: "Montserrat"
@@ -852,8 +852,8 @@ Item {
                 }
                 RadioButton {
                     id: radioButton2
-                    text: qsTr("Send Dollar")
-                    visible: false
+                    text: qsTr("Send Bitcoin")
+                    visible: true
                     font.pixelSize: 13
                     font.weight: Font.Normal
                     font.family: "Montserrat"
@@ -1482,7 +1482,7 @@ Item {
                 RadioButton {
                     id: radioButton1tw
                     text: qsTr("Send BitCash")
-                    visible: false
+                    visible: true
                     font.pixelSize: 13
                     font.weight: Font.Normal
                     font.family: "Montserrat"
@@ -1494,8 +1494,8 @@ Item {
                 }
                 RadioButton {
                     id: radioButton2tw
-                    text: qsTr("Send Dollar")
-                    visible: false
+                    text: qsTr("Send Bitcoin")
+                    visible: true
                     font.pixelSize: 13
                     font.weight: Font.Normal
                     font.family: "Montserrat"
@@ -1809,7 +1809,7 @@ Item {
                 RadioButton {
                     id: radioButton1in
                     text: qsTr("Send BitCash")
-                    visible: false
+                    visible: true
                     font.pixelSize: 13
                     font.weight: Font.Normal
                     font.family: "Montserrat"
@@ -1821,8 +1821,8 @@ Item {
                 }
                 RadioButton {
                     id: radioButton2in
-                    text: qsTr("Send Dollar")
-                    visible: false
+                    text: qsTr("Send Bitcoin")
+                    visible: true
                     font.pixelSize: 13
                     font.weight: Font.Normal
                     font.family: "Montserrat"
@@ -2136,7 +2136,7 @@ Item {
                 RadioButton {
                     id: radioButton1re
                     text: qsTr("Send BitCash")
-                    visible: false
+                    visible: true
                     font.pixelSize: 13
                     font.weight: Font.Normal
                     font.family: "Montserrat"
@@ -2148,8 +2148,8 @@ Item {
                 }
                 RadioButton {
                     id: radioButton2re
-                    text: qsTr("Send Dollar")
-                    visible: false
+                    text: qsTr("Send Bitcoin")
+                    visible: true
                     font.pixelSize: 13
                     font.weight: Font.Normal
                     font.family: "Montserrat"
@@ -2311,7 +2311,7 @@ Item {
                     font.weight: Font.Normal
                     font.family: "Montserrat"
                     text: qsTr("Send BitCash")
-                    visible: false
+                    visible: true
                     checked: true
                     anchors.left: parent.left
                     anchors.leftMargin: 30
@@ -2323,8 +2323,8 @@ Item {
                     font.pixelSize: 13
                     font.weight: Font.Normal
                     font.family: "Montserrat"
-                    text: qsTr("Send Dollar")
-                    visible: false
+                    text: qsTr("Send Bitcoin")
+                    visible: true
                     anchors.left: radioButton1an.right
                     anchors.leftMargin: 8
                     anchors.top: infolabelan.bottom

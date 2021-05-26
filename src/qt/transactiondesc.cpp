@@ -73,6 +73,10 @@ QString TransactionDesc::toHTML(interfaces::Node& node, interfaces::Wallet& wall
     CAmount nDebitgold = wtx.debitgold;
     CAmount nNetgold = nCreditgold - nDebitgold;
 
+    CAmount nCreditbitcoin = wtx.creditbitcoin;
+    CAmount nDebitbitcoin = wtx.debitbitcoin;
+    CAmount nNetbitcoin = nCreditbitcoin - nDebitbitcoin;
+
     CAmount nCreditusd = wtx.creditusd;
     CAmount nDebitusd = wtx.debitusd;
     CAmount nNetusd = nCreditusd - nDebitusd;
@@ -294,6 +298,7 @@ QString TransactionDesc::toHTML(interfaces::Node& node, interfaces::Wallet& wall
     strHTML += "<b>" + tr("Net amount BITC") + ":</b> " + BitcashUnits::formatHtmlWithUnit(unit, nNetbitc, true) + "<br>";
     strHTML += "<b>" + tr("Net amount USD") + ":</b> " + BitcashUnits::formatHtmlWithUnit(BitcashUnits::DOLLAR, nNetusd, true) + "<br>";
     strHTML += "<b>" + tr("Net amount Gold") + ":</b> " + BitcashUnits::formatHtmlWithUnit(BitcashUnits::GOLD, nNetgold, true) + "<br>";
+    strHTML += "<b>" + tr("Net amount BTC") + ":</b> " + BitcashUnits::formatHtmlWithUnit(BitcashUnits::BITCOIN, nNetbitcoin, true) + "<br>";
 
     for (unsigned int nOut = 0; nOut < wtx.tx->vout.size(); nOut++)
     {

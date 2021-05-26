@@ -48,6 +48,12 @@ ReceiveForm {
         receivingnickname.text=nick        
         receivingaddressEdit.text=address        
         receivingnicknameEdit.text=nick        
+
+        receivingaddressBi.text='bitcoin@' + address
+        receivingnicknameBi.text='bitcoin' + nick
+        receivingaddressEditBi.text='bitcoin@' + address
+        receivingnicknameEditBi.text='bitcoin' + nick
+
         if (nick===""){
            whitebox3.visible=true
            createnickname.visible=true
@@ -87,7 +93,19 @@ ReceiveForm {
             copynickname.leftPadding=20
             copynickname.iconname=""
         }, 3000);
-    }    
+    }
+    copynicknameBi.onClicked: {
+        receivingnicknameEditBi.selectAll()
+        receivingnicknameEditBi.copy()
+        copynicknameBi.text=qsTr("Copied")
+        copynicknameBi.leftPadding= 46
+        copynicknameBi.iconname="../res/icons/checkblue.png"
+        timer.setTimeout(function(){
+            copynicknameBi.text=qsTr("Copy BTC nickname to clipboard")
+            copynicknameBi.leftPadding=20
+            copynicknameBi.iconname=""
+        }, 3000);
+    }
     copyaddress.onClicked: {
         receivingaddressEdit.selectAll()
         receivingaddressEdit.copy()
@@ -100,6 +118,18 @@ ReceiveForm {
             copyaddress.iconname=""
         }, 3000);
     }    
+    copyaddressBi.onClicked: {
+        receivingaddressEditBi.selectAll()
+        receivingaddressEditBi.copy()
+        copyaddressBi.text=qsTr("Copied")
+        copyaddressBi.leftPadding= 46
+        copyaddressBi.iconname="../res/icons/checkblue.png"
+        timer.setTimeout(function(){
+            copyaddressBi.text=qsTr("Copy BTC address to clipboard")
+            copyaddressBi.leftPadding=20
+            copyaddressBi.iconname=""
+        }, 3000);
+    }
     createnickname.onClicked: gotocreatenicksignal()
     claimcoinsbtn.onClicked: claimlinkBtnSignalIntern(linkedit.text)
 }

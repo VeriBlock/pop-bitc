@@ -240,6 +240,7 @@ public Q_SLOTS:
     void SendBtnClicked(const QString &destination, const QString &label, const QString &description, double amount, bool substractfee);
     void SendBtnDoClicked(const QString &destination, const QString &label, const QString &description, double amount, bool substractfee);
     void SendBtnGoClicked(const QString &destination, const QString &label, const QString &description, double amount, bool substractfee);
+    void SendBtnBiClicked(const QString &destination, const QString &label, const QString &description, double amount, bool substractfee);
     bool SendBtnClickedIntern(const QString &destination, const QString &label, const QString &description, double amount, bool substractfee, bool dialog, unsigned char currency, bool nomessages);
     void SendToTwitterBtnClicked(const QString &destination, const QString &description, double amount, int currency);
     void SendToInstaBtnClicked(const QString &destination, const QString &description, double amount, int currency);

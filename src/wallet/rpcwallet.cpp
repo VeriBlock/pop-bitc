@@ -1134,7 +1134,7 @@ static UniValue getaddressesbyaccount(const JSONRPCRequest& request)
     return ret;
 }
 
-static CTransactionRef SendMoney(CWallet * const pwallet, const CTxDestination &address, CAmount nValue, bool fSubtractFeeFromAmount, const CCoinControl& coin_control, mapValue_t mapValue, std::string fromAccount, std::string referenceline, bool onlyfromoneaddress, CTxDestination fromaddress, bool provideprivatekey, CKey privatekey, unsigned char fromcurrency, bool donotsignnow, bool checkagainstprivkey, CKey secret)
+static CTransactionRef SendMoney(CWallet * const pwallet, const CTxDestination &address, CAmount nValue, bool fSubtractFeeFromAmount, const CCoinControl& coin_control, mapValue_t mapValue, std::string fromAccount, std::string referenceline, bool onlyfromoneaddress, CTxDestination fromaddress, bool provideprivatekey, CKey privatekey, unsigned char fromcurrency, bool donotsignnow, bool checkagainstprivkey, CKey secret, bool mintcoins)
 {
     CAmount curBalance;
     if (provideprivatekey) {
@@ -1161,7 +1161,7 @@ static CTransactionRef SendMoney(CWallet * const pwallet, const CTxDestination &
     if (nValue <= 0)
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid amount");
 
-    if (nValue > curBalance)
+    if (nValue > curBalance && ! mintcoins)
         throw JSONRPCError(RPC_WALLET_INSUFFICIENT_FUNDS, "Insufficient funds");
 
     if (pwallet->GetBroadcastTransactions() && !g_connman) {
@@ -1189,9 +1189,9 @@ static CTransactionRef SendMoney(CWallet * const pwallet, const CTxDestination &
         provideprivatekey = true;
     }
     if (!pwallet->CreateTransaction(vecSend, tx, reservekey, nFeeRequired, nChangePosRet, strError, coin_control, 
-                                    sign, onlyfromoneaddress, fromaddress, provideprivatekey, privatekey, fromcurrency, checkagainstprivkey, secret)) {
-        if (!fSubtractFeeFromAmount && nValue + nFeeRequired > curBalance)
-            strError = strprintf("Error: This transaction requires a transaction fee of at least %s", FormatMoney(nFeeRequired));
+                                    sign, onlyfromoneaddress, fromaddress, provideprivatekey, privatekey, fromcurrency, checkagainstprivkey, secret, mintcoins)) {
+//        if (!fSubtractFeeFromAmount && nValue + nFeeRequired > curBalance)
+  //          strError = strprintf("Error: This transaction requires a transaction fee of at least %s", FormatMoney(nFeeRequired));
         throw JSONRPCError(RPC_WALLET_ERROR, strError);
     }
     if (donotsignnow) {
@@ -1465,7 +1465,7 @@ static UniValue sendaslink(const JSONRPCRequest& request)
             + HelpRequiringPassphrase(pwallet) +
             "\nArguments:\n"
             "1. \"amount\"             (numeric or string, required) The amount in " + CURRENCY_UNIT + " to send. eg 0.1\n"
-            "2. currency               (numeric, optional, default=0) The currency account from which to send 0=BitCash 1=US Dollar\n"
+            "2. currency               (numeric, optional, default=0) The currency account from which to send 0 = BitCash 1 = US Dollar 2 = Gold 3 = Bitcoin\n"
             "3. \"referenceline\"      (string, optional) A reference line used to store what the transaction is for. \n"
             "                             This is part of the transaction.\n"
             "4. \"comment\"            (string, optional) A comment used to store what the transaction is for. \n"
@@ -1560,7 +1560,7 @@ static UniValue sendaslink(const JSONRPCRequest& request)
 
     EnsureWalletIsUnlocked(pwallet);
 
-    CTransactionRef tx = SendMoney(pwallet, dest, nAmount, fSubtractFeeFromAmount, coin_control, std::move(mapValue), {} /* fromAccount */, referenceline, false, CNoDestination(), false, CKey(), currency, false, true, secret);
+    CTransactionRef tx = SendMoney(pwallet, dest, nAmount, fSubtractFeeFromAmount, coin_control, std::move(mapValue), {} /* fromAccount */, referenceline, false, CNoDestination(), false, CKey(), currency, false, true, secret, false);
 
     strlink+="&txid="+tx->GetHash().GetHex();
     return strlink;
@@ -1619,7 +1619,7 @@ static UniValue sendaslinkfromaddress(const JSONRPCRequest& request)
             "\nArguments:\n"
             "1. \"fromaddress\"        (string, required) The bitcash address to send from\n"
             "2. \"amount\"             (numeric or string, required) The amount in " + CURRENCY_UNIT + " to send. eg 0.1\n"
-            "3. currency               (numeric, optional, default=0) The currency account from which to send 0=BitCash 1=US Dollar\n"
+            "3. currency               (numeric, optional, default=0) The currency account from which to send 0 = BitCash 1 = US Dollar 2 = Gold 3 = Bitcoin\n"
             "4. \"referenceline\"      (string, optional) A reference line used to store what the transaction is for. \n"
             "                             This is part of the transaction.\n"
             "5. \"comment\"            (string, optional) A comment used to store what the transaction is for. \n"
@@ -1719,7 +1719,7 @@ static UniValue sendaslinkfromaddress(const JSONRPCRequest& request)
 
     EnsureWalletIsUnlocked(pwallet);
 
-    CTransactionRef tx = SendMoney(pwallet, dest, nAmount, fSubtractFeeFromAmount, coin_control, std::move(mapValue), {} /* fromAccount */, referenceline, true, destfrom, false, CKey(), currency, false, true, secret);
+    CTransactionRef tx = SendMoney(pwallet, dest, nAmount, fSubtractFeeFromAmount, coin_control, std::move(mapValue), {} /* fromAccount */, referenceline, true, destfrom, false, CKey(), currency, false, true, secret, false);
 
     strlink+="&txid="+tx->GetHash().GetHex();
     return strlink;
@@ -1781,7 +1781,7 @@ static UniValue sendaslinkwithprivkey(const JSONRPCRequest& request)
             "2. \"withviewkey\"        (boolean, required) True if the from address belonging to the private key is an address with a view key\n"
 
             "3. \"amount\"             (numeric or string, required) The amount in " + CURRENCY_UNIT + " to send. eg 0.1\n"
-            "4. currency               (numeric, optional, default=0) The currency account from which to send 0=BitCash 1=US Dollar\n"
+            "4. currency               (numeric, optional, default=0) The currency account from which to send 0 = BitCash 1 = US Dollar 2 = Gold 3 = Bitcoin\n"
             "5. \"referenceline\"      (string, optional) A reference line used to store what the transaction is for. \n"
             "                             This is part of the transaction.\n"
             "6. \"comment\"            (string, optional) A comment used to store what the transaction is for. \n"
@@ -1897,7 +1897,7 @@ static UniValue sendaslinkwithprivkey(const JSONRPCRequest& request)
     assert(key.VerifyPubKey(pubkeyfrom));
 
     CTransactionRef tx = SendMoney( pwallet, dest, nAmount, fSubtractFeeFromAmount, coin_control, std::move(mapValue), {} /* fromAccount */, referenceline, 
-                                    true, destfrom, true, key, currency, false, true, secret);
+                                    true, destfrom, true, key, currency, false, true, secret, false);
 
     strlink+="&txid="+tx->GetHash().GetHex();
     return strlink;
@@ -2217,7 +2217,203 @@ static UniValue sendtoaddress(const JSONRPCRequest& request)
 
 
     EnsureWalletIsUnlocked(pwallet);
-    CTransactionRef tx = SendMoney(pwallet, dest, nAmount, fSubtractFeeFromAmount, coin_control, std::move(mapValue), {} /* fromAccount */, referenceline, false, CNoDestination(), false, CKey(), 0, false, false, CKey());
+    CTransactionRef tx = SendMoney(pwallet, dest, nAmount, fSubtractFeeFromAmount, coin_control, std::move(mapValue), {} /* fromAccount */, referenceline, false, CNoDestination(), false, CKey(), 0, false, false, CKey(), false);
+    return tx->GetHash().GetHex();
+}
+
+static UniValue mintcoins(const JSONRPCRequest& request)
+{
+    CWallet * const pwallet = GetWalletForJSONRPCRequest(request);
+    if (!EnsureWalletIsAvailable(pwallet, request.fHelp)) {
+        return NullUniValue;
+    }
+
+    if (request.fHelp || request.params.size() < 2 || request.params.size() > 9)
+        throw std::runtime_error(
+            "mintcoins \"address\" amount ( \"referenceline\" \"comment\" \"comment_to\" subtractfeefromamount replaceable conf_target \"estimate_mode\")\n"
+            "\nMint an amount of coins.\n"
+            + HelpRequiringPassphrase(pwallet) +
+            "\nArguments:\n"
+            "1. \"address\"            (string, required) The bitcash address to send to.\n"
+            "2. \"amount\"             (numeric or string, required) The amount in " + CURRENCY_UNIT + " to send. eg 0.1\n"
+            "3. \"referenceline\"      (string, optional) A reference line used to store what the transaction is for. \n"
+            "                             This is part of the transaction.\n"
+            "4. \"comment\"            (string, optional) A comment used to store what the transaction is for. \n"
+            "                             This is not part of the transaction, just kept in your wallet.\n"
+            "5. \"comment_to\"         (string, optional) A comment to store the name of the person or organization \n"
+            "                             to which you're sending the transaction. This is not part of the \n"
+            "                             transaction, just kept in your wallet.\n"
+            "6. subtractfeefromamount  (boolean, optional, default=false) The fee will be deducted from the amount being sent.\n"
+            "                             The recipient will receive less bitcashs than you enter in the amount field.\n"
+            "7. replaceable            (boolean, optional) Allow this transaction to be replaced by a transaction with higher fees via BIP 125\n"
+            "8. conf_target            (numeric, optional) Confirmation target (in blocks)\n"
+            "9. \"estimate_mode\"      (string, optional, default=UNSET) The fee estimate mode, must be one of:\n"
+            "       \"UNSET\"\n"
+            "       \"ECONOMICAL\"\n"
+            "       \"CONSERVATIVE\"\n"
+            "\nResult:\n"
+            "\"txid\"                  (string) The transaction id.\n"
+            "\nExamples:\n"
+            + HelpExampleCli("mintcoins", "\"1M72Sfpbz1BPpXFHz9m3CdqATR44Jvaydd\" 0.1")
+            + HelpExampleCli("mintcoins", "\"1M72Sfpbz1BPpXFHz9m3CdqATR44Jvaydd\" 0.1 \"donation\" \"seans outpost\"")
+            + HelpExampleCli("mintcoins", "\"1M72Sfpbz1BPpXFHz9m3CdqATR44Jvaydd\" 0.1 \"\" \"\" \"\" true")
+            + HelpExampleRpc("mintcoins", "\"1M72Sfpbz1BPpXFHz9m3CdqATR44Jvaydd\", 0.1, \"donation\", \"seans outpost\"")
+        );
+
+    // Make sure the results are valid at least up to the most recent block
+    // the user could have gotten from another RPC command prior to now
+    pwallet->BlockUntilSyncedToCurrentChain();
+
+    LOCK2(cs_main, pwallet->cs_wallet);
+
+    CTxDestination dest = DecodeDestination(request.params[0].get_str());
+    if (!IsValidDestination(dest)) {
+        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid address");
+    }
+
+    // Amount
+    CAmount nAmount = AmountFromValue(request.params[1]);
+    if (nAmount <= 0)
+        throw JSONRPCError(RPC_TYPE_ERROR, "Invalid amount for send");
+
+    std::string referenceline = "";
+    if (!request.params[2].isNull() && !request.params[2].get_str().empty())
+        referenceline = request.params[2].get_str();
+
+    // Wallet comments
+    mapValue_t mapValue;
+    if (!request.params[3].isNull() && !request.params[3].get_str().empty())
+        mapValue["comment"] = request.params[3].get_str();
+  
+    if (!request.params[4].isNull() && !request.params[4].get_str().empty())
+        mapValue["to"] = request.params[4].get_str();
+
+    bool fSubtractFeeFromAmount = false;
+    if (!request.params[5].isNull()) {
+        fSubtractFeeFromAmount = request.params[5].get_bool();
+    }
+
+    CCoinControl coin_control;
+    if (!request.params[6].isNull()) {
+        coin_control.m_signal_bip125_rbf = request.params[6].get_bool();
+    }
+
+    if (!request.params[7].isNull()) {
+        coin_control.m_confirm_target = ParseConfirmTarget(request.params[7]);
+    }
+
+    if (!request.params[8].isNull()) {
+        if (!FeeModeFromString(request.params[8].get_str(), coin_control.m_fee_mode)) {
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid estimate_mode parameter");
+        }
+    }
+
+
+    EnsureWalletIsUnlocked(pwallet);
+    CTransactionRef tx = SendMoney(pwallet, dest, nAmount, fSubtractFeeFromAmount, coin_control, std::move(mapValue), {} /* fromAccount */, referenceline, false, CNoDestination(), false, CKey(), 0, false, false, CKey(), true);
+    return tx->GetHash().GetHex();
+}
+
+static UniValue burncoins(const JSONRPCRequest& request)
+{
+    CWallet * const pwallet = GetWalletForJSONRPCRequest(request);
+    if (!EnsureWalletIsAvailable(pwallet, request.fHelp)) {
+        return NullUniValue;
+    }
+
+    if (request.fHelp || request.params.size() < 2 || request.params.size() > 9)
+        throw std::runtime_error(
+            "burncoins currency amount ( \"referenceline\" \"comment\" \"comment_to\" subtractfeefromamount replaceable conf_target \"estimate_mode\")\n"
+            "\nburn an amount of coins.\n"
+            + HelpRequiringPassphrase(pwallet) +
+            "\nArguments:\n"
+            "1. currency               (numeric, required) The currency account from which to burn 0 = BitCash 1 = US Dollar 2 = Gold 3 = Bitcoin\n"
+            "2. \"amount\"             (numeric or string, required) The amount in " + CURRENCY_UNIT + " to send. eg 0.1\n"
+            "3. \"referenceline\"      (string, optional) A reference line used to store what the transaction is for. \n"
+            "                             This is part of the transaction.\n"
+            "4. \"comment\"            (string, optional) A comment used to store what the transaction is for. \n"
+            "                             This is not part of the transaction, just kept in your wallet.\n"
+            "5. \"comment_to\"         (string, optional) A comment to store the name of the person or organization \n"
+            "                             to which you're sending the transaction. This is not part of the \n"
+            "                             transaction, just kept in your wallet.\n"
+            "6. subtractfeefromamount  (boolean, optional, default=true) The fee will be deducted from the amount being sent.\n"
+            "                             The recipient will receive less bitcashs than you enter in the amount field.\n"
+            "7. replaceable            (boolean, optional) Allow this transaction to be replaced by a transaction with higher fees via BIP 125\n"
+            "8. conf_target            (numeric, optional) Confirmation target (in blocks)\n"
+            "9. \"estimate_mode\"      (string, optional, default=UNSET) The fee estimate mode, must be one of:\n"
+            "       \"UNSET\"\n"
+            "       \"ECONOMICAL\"\n"
+            "       \"CONSERVATIVE\"\n"
+            "\nResult:\n"
+            "\"txid\"                  (string) The transaction id.\n"
+            "\nExamples:\n"
+            + HelpExampleCli("burncoins", "3 0.1")
+            + HelpExampleRpc("burncoins", "3, 0.1")
+        );
+
+    // Make sure the results are valid at least up to the most recent block
+    // the user could have gotten from another RPC command prior to now
+    pwallet->BlockUntilSyncedToCurrentChain();
+
+    LOCK2(cs_main, pwallet->cs_wallet);
+
+    int currency = 0;
+    if (!request.params[0].isNull()) {
+        const UniValue& mode = request.params[0];    
+        if (!mode.isNull())
+            currency = mode.get_int();    
+    }
+
+
+    CKey secret;
+    secret.MakeNewKey(true);
+    CPubKey newKey = secret.GetPubKey();
+
+    CTxDestination dest = GetDestinationForKey(newKey, OutputType::NONPRIVATE);
+
+    SetCurrencyForDestination(dest, 4);
+
+    // Amount
+    CAmount nAmount = AmountFromValue(request.params[1]);
+    if (nAmount <= 0)
+        throw JSONRPCError(RPC_TYPE_ERROR, "Invalid amount for send");
+
+    std::string referenceline = "";
+    if (!request.params[2].isNull() && !request.params[2].get_str().empty())
+        referenceline = request.params[2].get_str();
+
+    // Wallet comments
+    mapValue_t mapValue;
+    if (!request.params[3].isNull() && !request.params[3].get_str().empty())
+        mapValue["comment"] = request.params[3].get_str();
+  
+    if (!request.params[4].isNull() && !request.params[4].get_str().empty())
+        mapValue["to"] = request.params[4].get_str();
+
+    bool fSubtractFeeFromAmount = true;
+    if (!request.params[5].isNull()) {
+        fSubtractFeeFromAmount = request.params[5].get_bool();
+    }
+
+    CCoinControl coin_control;
+    if (!request.params[6].isNull()) {
+        coin_control.m_signal_bip125_rbf = request.params[6].get_bool();
+    }
+
+    if (!request.params[7].isNull()) {
+        coin_control.m_confirm_target = ParseConfirmTarget(request.params[7]);
+    }
+
+    if (!request.params[8].isNull()) {
+        if (!FeeModeFromString(request.params[8].get_str(), coin_control.m_fee_mode)) {
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid estimate_mode parameter");
+        }
+    }
+
+
+    EnsureWalletIsUnlocked(pwallet);
+    CTransactionRef tx = SendMoney(pwallet, dest, nAmount, fSubtractFeeFromAmount, coin_control, std::move(mapValue), {} /* fromAccount */, 
+                                   referenceline, false, CNoDestination(), false, CKey(), currency, false, false, CKey(), false);
     return tx->GetHash().GetHex();
 }
 
@@ -2234,7 +2430,7 @@ static UniValue sendtoaddressfromcurrency(const JSONRPCRequest& request)
             "\nSend an amount to a given address from a given currency account.\n"
             + HelpRequiringPassphrase(pwallet) +
             "\nArguments:\n"
-            "1. currency               (numeric, required) The currency account from which to send 0=BitCash 1=US Dollar\n"
+            "1. currency               (numeric, required) The currency account from which to send 0 = BitCash 1 = US Dollar 2 = Gold 3 = Bitcoin\n"
             "2. \"address\"            (string, required) The bitcash address to send to.\n"
             "3. \"amount\"             (numeric or string, required) The amount in " + CURRENCY_UNIT + " to send. eg 0.1\n"
             "4. \"referenceline\"      (string, optional) A reference line used to store what the transaction is for. \n"
@@ -2319,7 +2515,7 @@ static UniValue sendtoaddressfromcurrency(const JSONRPCRequest& request)
 
     EnsureWalletIsUnlocked(pwallet);
     CTransactionRef tx = SendMoney(pwallet, dest, nAmount, fSubtractFeeFromAmount, coin_control, std::move(mapValue), {} /* fromAccount */, 
-                                    referenceline, false, CNoDestination(), false, CKey(), currency, false, false, CKey());
+                                    referenceline, false, CNoDestination(), false, CKey(), currency, false, false, CKey(), false);
     return tx->GetHash().GetHex();
 }
 
@@ -2336,7 +2532,7 @@ static UniValue sendtoaddressfromaddress(const JSONRPCRequest& request)
             "\nSend an amount to a given address from a given address.\n"
             + HelpRequiringPassphrase(pwallet) +
             "\nArguments:\n"
-            "1. currency               (numeric, required) The currency account from which to send 0=BitCash 1=US Dollar\n"
+            "1. currency               (numeric, required) The currency account from which to send 0 = BitCash 1 = US Dollar 2 = Gold 3 = Bitcoin\n"
             "2. \"fromaddress\"        (string, required) The bitcash address to send from\n"
             "3. \"address\"            (string, required) The bitcash address to send to.\n"
             "4. \"amount\"             (numeric or string, required) The amount in " + CURRENCY_UNIT + " to send. eg 0.1\n"
@@ -2427,7 +2623,7 @@ static UniValue sendtoaddressfromaddress(const JSONRPCRequest& request)
 
     EnsureWalletIsUnlocked(pwallet);
 
-    CTransactionRef tx = SendMoney(pwallet, dest, nAmount, fSubtractFeeFromAmount, coin_control, std::move(mapValue), {} , referenceline, true, destfrom, false, CKey(), currency, false, false, CKey());
+    CTransactionRef tx = SendMoney(pwallet, dest, nAmount, fSubtractFeeFromAmount, coin_control, std::move(mapValue), {} , referenceline, true, destfrom, false, CKey(), currency, false, false, CKey(), false);
     return tx->GetHash().GetHex();
 //   return NullUniValue;
 }
@@ -2485,7 +2681,7 @@ static UniValue sendtoaddresswithprivkey(const JSONRPCRequest& request)
             "\nSend an amount to a given address from the address associated to the private key. This command can also spend funds from a watch only address (watch addresses only work with a viewkey).\n"
             + HelpRequiringPassphrase(pwallet) +
             "\nArguments:\n"
-            "1. currency               (numeric, required) The currency account from which to send 0=BitCash 1=US Dollar\n"
+            "1. currency               (numeric, required) The currency account from which to send 0 = BitCash 1 = US Dollar 2 = Gold 3 = Bitcoin\n"
             "2. \"privkey\"            (string, required) The private key (see dumpprivkey)\n"
             "3. \"withviewkey\"        (boolean, required) True if the from address belonging to the private key is an address with a view key\n"
             "4. \"address\"            (string, required) The bitcash address to send to.\n"
@@ -2599,7 +2795,7 @@ static UniValue sendtoaddresswithprivkey(const JSONRPCRequest& request)
 //std::cout << str << std::endl;
 
 
-    CTransactionRef tx = SendMoney(pwallet, dest, nAmount, fSubtractFeeFromAmount, coin_control, std::move(mapValue), {} , referenceline, true, destfrom, true, key, currency, false, false, CKey());
+    CTransactionRef tx = SendMoney(pwallet, dest, nAmount, fSubtractFeeFromAmount, coin_control, std::move(mapValue), {} , referenceline, true, destfrom, true, key, currency, false, false, CKey(), false);
     return tx->GetHash().GetHex();
 //   return NullUniValue;
 }
@@ -2617,7 +2813,7 @@ static UniValue sendtoaddressandsignlater(const JSONRPCRequest& request)
             "\nCreate an unsigned transaction to send an amount to a given address from a given address. It will return the created HEX encoded transaction as well as all HEX encoded input transactions. This command can also spend funds from a watch only address (watch addresses only work with a viewkey).\n"
             + HelpRequiringPassphrase(pwallet) +
             "\nArguments:\n"
-            "1. currency               (numeric, required) The currency account from which to send 0=BitCash 1=US Dollar\n"
+            "1. currency               (numeric, required) The currency account from which to send 0 = BitCash 1 = US Dollar 2 = Gold 3 = Bitcoin\n"
             "2. \"fromaddress\"        (string, required) The bitcash address to send from\n"
             "3. \"address\"            (string, required) The bitcash address to send to.\n"
             "4. \"amount\"             (numeric or string, required) The amount in " + CURRENCY_UNIT + " to send. eg 0.1\n"
@@ -2715,7 +2911,7 @@ static UniValue sendtoaddressandsignlater(const JSONRPCRequest& request)
 
     EnsureWalletIsUnlocked(pwallet);
 
-    CTransactionRef tx = SendMoney(pwallet, dest, nAmount, fSubtractFeeFromAmount, coin_control, std::move(mapValue), {} , referenceline, true, destfrom, false, CKey(), currency, true, false, CKey());
+    CTransactionRef tx = SendMoney(pwallet, dest, nAmount, fSubtractFeeFromAmount, coin_control, std::move(mapValue), {} , referenceline, true, destfrom, false, CKey(), currency, true, false, CKey(), false);
 
     UniValue result(UniValue::VOBJ);
     result.pushKV("tx", EncodeHexTx(*tx, RPCSerializationFlags()));
@@ -2999,7 +3195,7 @@ static UniValue getreceivedbylabel(const JSONRPCRequest& request)
             "\nReturns the total amount received by addresses with <label> in transactions with at least [minconf] confirmations.\n"
             "\nArguments:\n"          
             "1. \"label\"        (string, required) The selected label, may be the default label using \"\".\n"
-            "2. currency         (numeric, optional, default=0) 0=BitCash 1=US Dollar\n" 
+            "2. currency         (numeric, optional, default=0) 0 = BitCash 1 = US Dollar 2 = Gold 3 = Bitcoin\n" 
             "3. minconf          (numeric, optional, default=1) Only include transactions confirmed at least this many times.\n"
             "\nResult:\n"
             "amount              (numeric) The total amount in " + CURRENCY_UNIT + " received for this label.\n"
@@ -3144,7 +3340,7 @@ static UniValue getbalance(const JSONRPCRequest& request)
             "Note that the account \"\" is not the same as leaving the parameter out.\n"
             "The server total may be different to the balance in the default \"\" account.\n"
             "\nArguments:\n"
-            "1. currency          (numeric, optional, default=0) 0=BitCash 1=US Dollar\n" 
+            "1. currency          (numeric, optional, default=0) 0 = BitCash 1 = US Dollar 2 = Gold 3 = Bitcoin\n" 
             "2. \"account\"         (string, optional) DEPRECATED. This argument will be removed in V0.18. \n"
             "                     To use this deprecated argument, start bitcashd with -deprecatedrpc=accounts. The account string may be given as a\n"
             "                     specific account name to find the balance associated with wallet keys in\n"
@@ -3239,7 +3435,7 @@ static UniValue getbalanceforaddress(const JSONRPCRequest& request)
             "1. \"toaddress\"     (string, required) The bitcash address.\n"
             "2. mode              (numeric, optional, default=0) 0=available balance 1=unconfirmed balance 2=immature balance 3=total balance\n" 
             "3. watchonly         (bool, optional, default=false) \n"
-            "4. currency          (numeric, optional, default=0) The currency account from which to send 0=BitCash 1=US Dollar\n"
+            "4. currency          (numeric, optional, default=0) The currency account from which to send 0 = BitCash 1 = US Dollar 2 = Gold 3 = Bitcoin\n"
             "\nResult:\n"
             "amount              (numeric) The total amount in " + CURRENCY_UNIT + " received for this account.\n"
             "\nExamples:\n"
@@ -3317,7 +3513,7 @@ static UniValue getunconfirmedbalance(const JSONRPCRequest &request)
                 "getunconfirmedbalanceforcurrency (currency)\n"
                 "Returns the server's total unconfirmed balance\n"
                 "\nArguments:\n"
-    	        "1. currency          (numeric, optional, default=0) 0=BitCash 1=US Dollar\n" );
+    	        "1. currency          (numeric, optional, default=0) 0 = BitCash 1 = US Dollar 2 = Gold 3 = Bitcoin\n" );
 
     }
 
@@ -3416,7 +3612,7 @@ static UniValue movecurrencycmd(const JSONRPCRequest& request)
             "movecurrency currency \"fromaccount\" \"toaccount\" amount ( minconf \"comment\" )\n"
             "\nDEPRECATED. Move a specified amount from one account in your wallet to another.\n"
             "\nArguments:\n"
-            "1. currency          (numeric, required) The currency account from which to send 0 = BitCash 1 = US Dollar\n"
+            "1. currency          (numeric, required) The currency account from which to send 0 = BitCash 1 = US Dollar 2 = Gold 3 = Bitcoin\n"
             "2. \"fromaccount\"   (string, required) The name of the account to move funds from. May be the default account using \"\".\n"
             "3. \"toaccount\"     (string, required) The name of the account to move funds to. May be the default account using \"\".\n"
             "4. amount            (numeric) Quantity of " + CURRENCY_UNIT + " to move between accounts.\n"
@@ -3511,7 +3707,7 @@ static UniValue sendfrom(const JSONRPCRequest& request)
             "                       the spend.\n"
             "2. \"toaddress\"         (string, required) The bitcash address to send funds to.\n"
             "3. amount                (numeric or string, required) The amount in " + CURRENCY_UNIT + " (transaction fee is added on top).\n"
-            "4. currency              (numeric, optional, default=0) The currency account from which to send 0=BitCash 1=US Dollar\n"
+            "4. currency              (numeric, optional, default=0) The currency account from which to send 0 = BitCash 1 = US Dollar 2 = Gold 3 = Bitcoin\n"
             "5. \"referenceline\"      (string, optional) A reference line used to store what the transaction is for. \n"
             "                             This is part of the transaction.\n"
             "6. minconf               (numeric, optional, default=1) Only use funds with at least this many confirmations.\n"
@@ -3588,7 +3784,7 @@ static UniValue sendfrom(const JSONRPCRequest& request)
         throw JSONRPCError(RPC_WALLET_INSUFFICIENT_FUNDS, "Account has insufficient funds");
 
     CCoinControl no_coin_control; // This is a deprecated API
-    CTransactionRef tx = SendMoney(pwallet, dest, nAmount, fSubtractFeeFromAmount, no_coin_control, std::move(mapValue), std::move(strAccount),referenceline, false, CNoDestination(), false, CKey(), currency, false, false, CKey());
+    CTransactionRef tx = SendMoney(pwallet, dest, nAmount, fSubtractFeeFromAmount, no_coin_control, std::move(mapValue), std::move(strAccount),referenceline, false, CNoDestination(), false, CKey(), currency, false, false, CKey(), false);
     return tx->GetHash().GetHex();
 }
 
@@ -3608,7 +3804,7 @@ static UniValue sendmany(const JSONRPCRequest& request)
             "bitcashd with -deprecatedrpc=accounts\n"
             + HelpRequiringPassphrase(pwallet) + "\n"
             "\nArguments:\n"
-            "1. currency                (numeric, required) 0=BitCash 1=US Dollar\n" 
+            "1. currency                (numeric, required) 0 = BitCash 1 = US Dollar 2 = Gold 3 = Bitcoin\n" 
             "2. \"dummy\"               (string, required) Must be set to \"\" for backwards compatibility.\n"
             "3. \"amounts\"             (string, required) A json object with addresses and amounts\n"
             "    {\n"
@@ -3694,7 +3890,7 @@ static UniValue sendmany(const JSONRPCRequest& request)
             "\nSend multiple times. Amounts are double-precision floating point numbers."
             + HelpRequiringPassphrase(pwallet) + "\n"
             "\nArguments:\n"
-            "1. currency                (numeric, required) 0=BitCash 1=US Dollar\n" 
+            "1. currency                (numeric, required) 0 = BitCash 1 = US Dollar 2 = Gold 3 = Bitcoin\n" 
             "2. \"fromaccount\"         (string, required) DEPRECATED. The account to send the funds from. Should be \"\" for the default account\n"
             "3. \"amounts\"             (string, required) A json object with addresses and amounts\n"
             "    {\n"
@@ -4316,7 +4512,7 @@ static UniValue listreceivedbyaddress(const JSONRPCRequest& request)
             "listreceivedbyaddressforcurrency ( currency minconf include_empty include_watchonly address_filter )\n"
             "\nList balances by receiving address.\n"
             "\nArguments:\n"
-            "1. currency          (numeric, optional, default=0) 0=BitCash 1=US Dollar\n" 
+            "1. currency          (numeric, optional, default=0) 0 = BitCash 1 = US Dollar 2 = Gold 3 = Bitcoin\n" 
             "2. minconf           (numeric, optional, default=1) The minimum number of confirmations before payments are included.\n"
             "3. include_empty     (bool, optional, default=false) Whether to include addresses that haven't received any payments.\n"
             "4. include_watchonly (bool, optional, default=false) Whether to include watch-only addresses (see 'importaddress').\n"
@@ -4407,7 +4603,7 @@ static UniValue listreceivedbylabel(const JSONRPCRequest& request)
             "listreceivedbylabelforcurrency ( currency minconf include_empty include_watchonly)\n"
                "\nList received transactions by label.\n"
             "\nArguments:\n"
-            "1. currency          (numeric, optional, default=0) 0=BitCash 1=US Dollar\n" 
+            "1. currency          (numeric, optional, default=0) 0 = BitCash 1 = US Dollar 2 = Gold 3 = Bitcoin\n" 
             "2. minconf           (numeric, optional, default=1) The minimum number of confirmations before payments are included.\n"
             "3. include_empty     (bool, optional, default=false) Whether to include labels that haven't received any payments.\n"
             "4. include_watchonly (bool, optional, default=false) Whether to include watch-only addresses (see 'importaddress').\n"
@@ -4592,7 +4788,7 @@ UniValue listtransactions(const JSONRPCRequest& request)
             "Note that the \"account\" argument and \"otheraccount\" return value have been removed in V0.17. To use this RPC with an \"account\" argument, restart\n"
             "bitcashd with -deprecatedrpc=accounts\n"
             "\nArguments:\n"
-	    "1. currency       (numeric, optional, default=0) 0=BitCash, 1=Dollar\n"
+	    "1. currency       (numeric, optional, default=0) 0 = BitCash 1 = US Dollar 2 = Gold 3 = Bitcoin\n"
             "2. \"dummy\"      (string, optional) If set, should be \"*\" for backwards compatibility.\n"
             "3. count          (numeric, optional, default=10) The number of transactions to return\n"
             "4. skip           (numeric, optional, default=0) The number of transactions to skip\n"
@@ -4696,7 +4892,7 @@ UniValue listtransactions(const JSONRPCRequest& request)
         help_text = "listtransactionsforcurrency ( currency \"account\" count skip include_watchonly)\n"
             "\nReturns up to 'count' most recent transactions skipping the first 'from' transactions for account 'account'.\n"
             "\nArguments:\n"
-    	    "1. currency       (numeric, optional, default=0) 0=BitCash, 1=Dollar, 255=all currencies\n"
+    	    "1. currency       (numeric, optional, default=0) 0 = BitCash 1 = US Dollar 2 = Gold 3 = Bitcoin, 255=all currencies\n"
             "2. \"account\"    (string, optional) DEPRECATED. This argument will be removed in V0.18. The account name. Should be \"*\".\n"
             "3. count          (numeric, optional, default=10) The number of transactions to return\n"
             "4. skip           (numeric, optional, default=0) The number of transactions to skip\n"
@@ -4909,7 +5105,7 @@ UniValue listtransactionsforaddress(const JSONRPCRequest& request)
             "\nReturns up to 'count' most recent transactions skipping the first 'from' transactions for account 'account'.\n"
             "\nArguments:\n"
             "1. \"address\"            (string, required) The bitcash address.\n"
-            "2. currency       (numeric, optional, default=0) 0=BitCash, 1=Dollar, 255=all currencies\n"
+            "2. currency       (numeric, optional, default=0) 0 = BitCash 1 = US Dollar 2 = Gold 3 = Bitcoin, 255=all currencies\n"
             "3. count          (numeric, optional, default=10) The number of transactions to return\n"
             "4. skip           (numeric, optional, default=0) The number of transactions to skip\n"
 
@@ -5061,7 +5257,7 @@ static UniValue listaccounts(const JSONRPCRequest& request)
             "\nArguments:\n"
             "1. minconf             (numeric, optional, default=1) Only include transactions with at least this many confirmations\n"
             "2. include_watchonly   (bool, optional, default=false) Include balances in watch-only addresses (see 'importaddress')\n"
-            "3. currency            (numeric, optional, default=0) 0=BitCash 1=US Dollar\n" 
+            "3. currency            (numeric, optional, default=0) 0 = BitCash 1 = US Dollar 2 = Gold 3 = Bitcoin\n" 
             "\nResult:\n"
             "{                      (json object where keys are account names, and values are numeric balances\n"
             "  \"account\": x.xxx,  (numeric) The property name is the account name, and the value is the total balance for the account.\n"
@@ -5210,7 +5406,7 @@ static UniValue listsinceblock(const JSONRPCRequest& request)
             "If \"blockhash\" is no longer a part of the main chain, transactions from the fork point onward are included.\n"
             "Additionally, if include_removed is set, transactions affecting the wallet which were removed are returned in the \"removed\" array.\n"
             "\nArguments:\n"
-            "1. currency                 (numeric, optional, default=0) 0=BitCash 1=US Dollar\n" 
+            "1. currency                 (numeric, optional, default=0) 0 = BitCash 1 = US Dollar 2 = Gold 3 = Bitcoin\n" 
             "2. \"blockhash\"            (string, optional) The block hash to list transactions since\n"
             "3. target_confirmations:    (numeric, optional, default=1) Return the nth block hash from the main chain. e.g. 1 would mean the best block hash. Note: this is not used as a filter, but only affects [lastblock] in the return value\n"
             "4. include_watchonly:       (bool, optional, default=false) Include transactions to watch-only addresses (see 'importaddress')\n"
@@ -7649,6 +7845,8 @@ static const CRPCCommand commands[] =
     { "hidden",             "addwitnessaddress",                &addwitnessaddress,             {"address","p2sh"} },
     { "wallet",             "backupwallet",                     &backupwallet,                  {"destination"} },
     { "wallet",             "bumpfee",                          &bumpfee,                       {"txid", "options"} },
+    { "wallet",             "burncoins",                        &burncoins,                
+ {"currency","amount","comment","comment_to","subtractfeefromamount","replaceable","conf_target","estimate_mode"} },
     { "wallet",             "claimcoinsfromlink",               &claimcoinsfromlink,            {"link"} },
     { "wallet",             "createcoinbaseforaddress",         &createcoinbaseforaddress,      {"address", "blockheight", "pricehash"} },
     { "wallet",             "createcoinbaseforaddresswithpoolfee",&createcoinbaseforaddresswithpoolfee,    {"address", "blockheight", "pooladdress", "poolfeepermille", "pricehash"} },
@@ -7709,6 +7907,8 @@ static const CRPCCommand commands[] =
     { "wallet",             "listunspentforaddress",            &listunspentforaddress,                   {"address","minconf","maxconf","addresses","include_unsafe","query_options"} },
     { "wallet",             "listwallets",                      &listwallets,                   {} },
     { "wallet",             "lockunspent",                      &lockunspent,                   {"unlock","transactions"} },
+    { "wallet",             "mintcoins",                        &mintcoins,                
+ {"address","amount","comment","comment_to","subtractfeefromamount","replaceable","conf_target","estimate_mode"} },
     { "wallet",             "sendfrom",                         &sendfrom,                      {"fromaccount","toaddress","amount","currency", "reference line", "minconf","comment","comment_to", "subtractfeefromamount"} },
     { "wallet",             "sendfromcurrency",                 &sendfrom,                      {"fromaccount","toaddress","amount", "reference line", "minconf","comment","comment_to", "subtractfeefromamount"} },
     { "wallet",             "sendmany",                         &sendmany,                      {"fromaccount|dummy","amounts","minconf","comment","subtractfeefrom","replaceable","conf_target","estimate_mode"} },

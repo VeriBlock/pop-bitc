@@ -122,6 +122,7 @@ public:
 
     bool GetSpendsCoinbase() const { return spendsCoinbase; }
     bool IsNicknameTx() const;
+    bool IsMintTx() const;
 
     uint64_t GetCountWithAncestors() const { return nCountWithAncestors; }
     uint64_t GetSizeWithAncestors() const { return nSizeWithAncestors; }

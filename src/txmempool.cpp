@@ -60,6 +60,11 @@ bool CTxMemPoolEntry::IsNicknameTx() const
     return isnick;
 }
 
+bool CTxMemPoolEntry::IsMintTx() const
+{
+    return tx->isminttransaction();
+}
+
 size_t CTxMemPoolEntry::GetTxSize() const
 {
     return GetVirtualTransactionSize(nTxWeight, sigOpCost);

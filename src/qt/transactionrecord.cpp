@@ -39,6 +39,8 @@ QList<TransactionRecord> TransactionRecord::decomposeTransaction(const interface
     CAmount nDebitusd = wtx.debitusd;
     CAmount nCreditgold = wtx.creditgold;
     CAmount nDebitgold = wtx.debitgold;
+    CAmount nCreditbitcoin = wtx.creditbitcoin;
+    CAmount nDebitbitcoin = wtx.debitbitcoin;
     unsigned char inputcurrency = wtx.inputcurrency;
 
     CAmount nNet = nCredit - nDebit;
@@ -67,7 +69,7 @@ QList<TransactionRecord> TransactionRecord::decomposeTransaction(const interface
         CAmount nChange = wtx.change;
 
         parts.append(TransactionRecord(hash, nTime, TransactionRecord::SendToSelf, "",
-                            -(nDebit - nChange), nCredit - nChange, 0, -nDebitbitc, nCreditbitc, -nDebitusd, nCreditusd, -nDebitgold, nCreditgold));
+                            -(nDebit - nChange), nCredit - nChange, 0, -nDebitbitc, nCreditbitc, -nDebitusd, nCreditusd, -nDebitgold, nCreditgold, -nDebitbitcoin, nCreditbitcoin));
         parts.last().involvesWatchAddress = involvesWatchAddress;   // maybe pass to TransactionRecord as constructor argument
 
         for (unsigned int nOut = 0; nOut < wtx.tx->vout.size(); nOut++)
@@ -101,6 +103,10 @@ QList<TransactionRecord> TransactionRecord::decomposeTransaction(const interface
                 if (txout.currency == 1)
                 {
                     sub.creditusd = txout.nValue;
+                } else
+                if (txout.currency == 3)
+                {
+                    sub.creditbitcoin = txout.nValue;
                 } else
                 {
                     sub.creditgold = txout.nValue;
@@ -192,6 +198,10 @@ QList<TransactionRecord> TransactionRecord::decomposeTransaction(const interface
                 if (sub.currency == 2)
                 {
                     sub.debitgold = -nValue;
+                } else
+                if (sub.currency == 3)
+                {
+                    sub.debitbitcoin = -nValue;
                 }
 
                 parts.append(sub);
@@ -206,7 +216,7 @@ QList<TransactionRecord> TransactionRecord::decomposeTransaction(const interface
             {
                 if (wtx.tx->vin[i].isnickname) {
                     //nickname transaction
-                    parts.append(TransactionRecord(hash, nTime, TransactionRecord::SendToOther, "", nNet, 0, 0, 0, 0, 0, 0, 0, 0));
+                    parts.append(TransactionRecord(hash, nTime, TransactionRecord::SendToOther, "", nNet, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0));
                     parts.last().involvesWatchAddress = involvesWatchAddress;  
          
                     parts.last().address=EncodeDestination(wtx.tx->vin[i].address);
@@ -216,7 +226,7 @@ QList<TransactionRecord> TransactionRecord::decomposeTransaction(const interface
                 }
             }
 
-            parts.append(TransactionRecord(hash, nTime, TransactionRecord::Other, "", nNet, 0, 0, -nDebitbitc, nCreditbitc, -nDebitusd, nCreditusd, -nDebitgold, nCreditgold));
+            parts.append(TransactionRecord(hash, nTime, TransactionRecord::Other, "", nNet, 0, 0, -nDebitbitc, nCreditbitc, -nDebitusd, nCreditusd, -nDebitgold, nCreditgold, -nDebitbitcoin, nCreditbitcoin));
             parts.last().involvesWatchAddress = involvesWatchAddress;
         }
     }

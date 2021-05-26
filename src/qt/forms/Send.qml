@@ -7,6 +7,7 @@ import DestCheckValidator2 1.0
 SendForm {    
     signal sendBtnSignalIntern(string destination, string label, string description, double amount, bool substractfee)
     signal sendBtnDoSignalIntern(string destination, string label, string description, double amount, bool substractfee)
+    signal sendBtnBiSignalIntern(string destination, string label, string description, double amount, bool substractfee)
     signal sendBtnGoSignalIntern(string destination, string label, string description, double amount, bool substractfee)
     signal printBtnDoSignalIntern()
     signal printBtnSignalIntern()
@@ -111,7 +112,7 @@ SendForm {
         confirmmode = 0
 
         if (radioButton2tw.checked){
-            currency = "USD";
+            currency = "BTC";
         } else
         if (radioButton1tw.checked){
             currency = "BITC";
@@ -139,7 +140,7 @@ SendForm {
     {
         confirmmode = 1
         if (radioButton2in.checked){
-            currency = "USD";
+            currency = "BTC";
         } else
         if (radioButton1in.checked){
             currency = "BITC";
@@ -166,7 +167,7 @@ SendForm {
     {
         confirmmode = 2
         if (radioButton2re.checked){
-            currency = "USD";
+            currency = "BTC";
         } else
         if (radioButton1re.checked){
             currency = "BITC";
@@ -248,6 +249,7 @@ SendForm {
     property real maxbalancenum : 0
     property real maxbalancenumDo : 0
     property real maxbalancenumGo : 0
+    property real maxbalancenumBi : 0
 
     function setleftamountbalanceitern(left) {
 
@@ -259,6 +261,7 @@ SendForm {
     property real leftbalancein: 0
     property real leftbalancere: 0
     property real leftbalancean: 0
+    property real leftbalanceBi: 0
     property real priceindollar: 0
     property real priceindollar2: 0
     property real priceingold: 0
@@ -280,23 +283,23 @@ SendForm {
             leftbalance = maxbalancenum - amountEdit.text
             if (leftbalance < 0) leftbalance = 0
             leftamountlabel.text = leftbalance.toFixed(9)
-            if (paytoEdit.text.toUpperCase().indexOf("DOLLAR@") == 0 && priceindollar2 != 0) {
+            /*if (paytoEdit.text.toUpperCase().indexOf("DOLLAR@") == 0 && priceindollar2 != 0) {
                 dollarlabel.text = amountEdit.text * priceindollar2 + " Dollar (price can change until tx is mined)"
             } else
             if (paytoEdit.text.toUpperCase().indexOf("GOLD@") == 0 && priceingold != 0 && priceindollar2 != 0) {
                 dollarlabel.text = amountEdit.text * priceindollar2 / priceingold + " ounces Gold (price can change until tx is mined)"
             } else {
                 dollarlabel.text = "";
-            }
+            }*/
         } else
         if (radioButton2.checked)
         {
-            bitcashicon.text = "$"
-            currencytext.text = "USD"
-            leftbalance = maxbalancenumDo - amountEdit.text
+            bitcashicon.text = "BTC"
+            currencytext.text = "BTC"
+            leftbalance = maxbalancenumBi - amountEdit.text
             if (leftbalance < 0) leftbalance = 0
             leftamountlabel.text = leftbalance.toFixed(9)
-            if (paytoEdit.text.toUpperCase().indexOf("DOLLAR@") == 0) {
+            /*if (paytoEdit.text.toUpperCase().indexOf("DOLLAR@") == 0) {
                 dollarlabel.text = "";
             } else
             if (paytoEdit.text.toUpperCase().indexOf("GOLD@") == 0 && priceingold != 0) {
@@ -306,7 +309,7 @@ SendForm {
                 dollarlabel.text = amountEdit.text / priceindollar + " BitCash (price can change until tx is mined)"
             } else {
                 dollarlabel.text = "";
-            }
+            }*/
          } else
          if (radioButton3.checked)
          {
@@ -341,15 +344,22 @@ SendForm {
         }*/
     }
 
+    function calcleftbalanceBi()
+    {
+        leftbalanceBi = maxbalancenumBi - amountEdit.text
+        if (leftbalanceBi < 0) leftbalanceBi = 0
+        leftamountlabel.text = leftbalanceBi.toFixed(9)
+    }
+
     function calcleftbalancetw()
     {
         /****************************/
         if (radioButton2tw.checked)
         {
-            leftbalancetw = maxbalancenumDo-amountEdittw.text
+            leftbalancetw = maxbalancenumBi-amountEdittw.text
             if (leftbalancetw < 0) leftbalancetw = 0
             leftamountlabeltw.text = leftbalancetw.toFixed(9)
-            bitcashicontw.text = "$"
+            bitcashicontw.text = "BTC"
         } else
         if (radioButton1tw.checked)
         {
@@ -373,10 +383,10 @@ SendForm {
         /****************************/
         if (radioButton2in.checked)
         {
-            leftbalancein = maxbalancenumDo-amountEditin.text
+            leftbalancein = maxbalancenumBi-amountEditin.text
             if (leftbalancein<0) leftbalancein=0
             leftamountlabelin.text = leftbalancein.toFixed(9)
-            bitcashiconin.text = "$"
+            bitcashiconin.text = "BTC"
         } else
         if (radioButton1in.checked)
         {
@@ -400,10 +410,10 @@ SendForm {
         /****************************/
         if (radioButton2re.checked)
         {
-            leftbalancere = maxbalancenumDo-amountEditre.text
+            leftbalancere = maxbalancenumBi-amountEditre.text
             if (leftbalancere<0) leftbalancere=0
             leftamountlabelre.text = leftbalancere.toFixed(9)
-            bitcashiconre.text = "$"
+            bitcashiconre.text = "BTC"
         } else
         if (radioButton1re.checked)
         {
@@ -426,11 +436,11 @@ SendForm {
     {
         if (radioButton2an.checked)
         {
-            leftbalancean = maxbalancenumDo - amountEditan.text
+            leftbalancean = maxbalancenumBi - amountEditan.text
             if (leftbalancean < 0) leftbalancean = 0
             leftamountlabelan.text = leftbalancean.toFixed(9)
-            currencytextan.text = "USD"
-            bitcashiconan.text = "$"
+            currencytextan.text = "BTC"
+            bitcashiconan.text = "BTC"
         } else
         if (radioButton1an.checked)
         {
@@ -474,6 +484,12 @@ SendForm {
         calcleftbalanceDo()
     }
 
+    function setmaxbalanceinternBi(avail,availnum) {
+        //maxbalanceDo.text=avail
+        maxbalancenumBi=availnum;
+        calcleftbalanceBi()
+    }
+
     function setmaxbalanceinternGo(avail,availnum) {
         maxbalancenumGo=availnum;
     }
@@ -507,7 +523,7 @@ SendForm {
     amountEdit.validator: amountCheckVal       
     amountEdit.onTextChanged: calcleftbalance()
     /*amountEditDo.validator: amountCheckVal
-    amountEditDo.onTextChanged: calcleftbalanceDo()*/
+    amountEditDo.onTextChanged: calcleftbalanceDo()*/    
     amountEditan.validator: amountCheckVal
     amountEditan.onTextChanged: calcleftbalancean()
     paytoEdit.validator: destCheckVal
@@ -542,7 +558,7 @@ SendForm {
             sendBtntwSignalIntern(paytoEdittw.text, descriptionEdittw.text, amountEdittw.text, 0)
         } else
         if (radioButton2tw.checked) {
-            sendBtntwSignalIntern(paytoEdittw.text, descriptionEdittw.text, amountEdittw.text, 1)
+            sendBtntwSignalIntern(paytoEdittw.text, descriptionEdittw.text, amountEdittw.text, 3)
         } else
         if (radioButton3tw.checked) {
             sendBtntwSignalIntern(paytoEdittw.text, descriptionEdittw.text, amountEdittw.text, 2)
@@ -558,7 +574,7 @@ SendForm {
             sendBtninSignalIntern(paytoEditin.text, descriptionEditin.text, amountEditin.text, 0)
         } else
         if (radioButton2tw.checked) {
-            sendBtninSignalIntern(paytoEditin.text, descriptionEditin.text, amountEditin.text, 1)
+            sendBtninSignalIntern(paytoEditin.text, descriptionEditin.text, amountEditin.text, 3)
         } else
         if (radioButton3tw.checked) {
             sendBtninSignalIntern(paytoEditin.text, descriptionEditin.text, amountEditin.text, 2)
@@ -574,7 +590,7 @@ SendForm {
             sendBtnreSignalIntern(paytoEditre.text, descriptionEditre.text, amountEditre.text, 0)
         } else
         if (radioButton2re.checked) {
-            sendBtnreSignalIntern(paytoEditre.text, descriptionEditre.text, amountEditre.text, 1)
+            sendBtnreSignalIntern(paytoEditre.text, descriptionEditre.text, amountEditre.text, 3)
         } else
         if (radioButton3re.checked) {
             sendBtnreSignalIntern(paytoEditre.text, descriptionEditre.text, amountEditre.text, 2)
@@ -595,7 +611,7 @@ SendForm {
             sendBtnSignalIntern(paytoEdit.text, labelEdit.text, descriptionEdit.text, amountEdit.text, subtractfeeCheck.checked)
         } else
         if (radioButton2.checked) {
-            sendBtnDoSignalIntern(paytoEdit.text, labelEdit.text, descriptionEdit.text, amountEdit.text, subtractfeeCheck.checked)
+            sendBtnBiSignalIntern(paytoEdit.text, labelEdit.text, descriptionEdit.text, amountEdit.text, subtractfeeCheck.checked)
         } else
         if (radioButton3.checked) {
             sendBtnGoSignalIntern(paytoEdit.text, labelEdit.text, descriptionEdit.text, amountEdit.text, subtractfeeCheck.checked)
@@ -609,7 +625,7 @@ SendForm {
             sendlinkBtnSignalIntern(descriptionEditan.text, amountEditan.text, 0)
         } else
         if (radioButton2an.checked){
-            sendlinkBtnSignalIntern(descriptionEditan.text, amountEditan.text, 1)
+            sendlinkBtnSignalIntern(descriptionEditan.text, amountEditan.text, 3)
         } else
         if (radioButton3an.checked){
             sendlinkBtnSignalIntern(descriptionEditan.text, amountEditan.text, 2)
@@ -621,7 +637,7 @@ SendForm {
                 sendconfirmedBtntwSignalIntern(paytoEdittw.text, descriptionEdittw.text, amountEdittw.text, 0)
             } else
             if (radioButton2tw.checked){
-                sendconfirmedBtntwSignalIntern(paytoEdittw.text, descriptionEdittw.text, amountEdittw.text, 1)
+                sendconfirmedBtntwSignalIntern(paytoEdittw.text, descriptionEdittw.text, amountEdittw.text, 3)
             } else
             if (radioButton3tw.checked){
                 sendconfirmedBtntwSignalIntern(paytoEdittw.text, descriptionEdittw.text, amountEdittw.text, 2)
@@ -632,7 +648,7 @@ SendForm {
                 sendconfirmedBtninSignalIntern(paytoEditin.text, descriptionEditin.text, amountEditin.text, 0)
             } else
             if (radioButton2in.checked){
-                sendconfirmedBtninSignalIntern(paytoEditin.text, descriptionEditin.text, amountEditin.text, 1)
+                sendconfirmedBtninSignalIntern(paytoEditin.text, descriptionEditin.text, amountEditin.text, 3)
             } else
             if (radioButton3in.checked){
                 sendconfirmedBtninSignalIntern(paytoEditin.text, descriptionEditin.text, amountEditin.text, 2)
@@ -643,7 +659,7 @@ SendForm {
                 sendconfirmedBtnreSignalIntern(paytoEditre.text, descriptionEditre.text, amountEditre.text, 0)
             } else
             if (radioButton2re.checked){
-                sendconfirmedBtnreSignalIntern(paytoEditre.text, descriptionEditre.text, amountEditre.text, 1)
+                sendconfirmedBtnreSignalIntern(paytoEditre.text, descriptionEditre.text, amountEditre.text, 3)
             } else
             if (radioButton3re.checked){
                 sendconfirmedBtnreSignalIntern(paytoEditre.text, descriptionEditre.text, amountEditre.text, 2)

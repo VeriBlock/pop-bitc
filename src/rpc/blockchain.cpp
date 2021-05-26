@@ -1183,6 +1183,8 @@ static UniValue gettxoutsetinfo(const JSONRPCRequest& request)
         ret.pushKV("total_amount", ValueFromAmount(stats.nTotalAmount[0]));
         ret.pushKV("total_amount_usd", ValueFromAmount(stats.nTotalAmount[1]));
         ret.pushKV("total_amount_gold", ValueFromAmount(stats.nTotalAmount[2]));
+        ret.pushKV("total_amount_bitcoin", ValueFromAmount(stats.nTotalAmount[3]));
+        ret.pushKV("total_amount_burned", ValueFromAmount(stats.nTotalAmount[4]));
     } else {
         throw JSONRPCError(RPC_INTERNAL_ERROR, "Unable to read UTXO set");
     }

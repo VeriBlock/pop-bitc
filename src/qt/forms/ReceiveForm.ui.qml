@@ -164,7 +164,7 @@ Item {
         anchors.topMargin: 26
         border.width: 0
         width: 632
-        height: 171
+        height: 295
     }
 
     Rectangle {
@@ -236,6 +236,58 @@ Item {
     }
 
     Label {
+        id: labelBi
+        color: "#202124"
+        text: qsTr("Your Bitcoin address")
+        font.pixelSize: 14
+        font.weight: Font.DemiBold
+        font.family: "Montserrat SemiBold"
+        anchors.top: copyaddress.bottom
+        anchors.topMargin: 30
+        anchors.left: whitebox.left
+        anchors.leftMargin: 30
+    }
+
+    property alias receivingaddressBi: receivingaddressBi
+    property alias receivingaddressEditBi: receivingaddressEditBi
+
+    Label {
+        id: receivingaddressBi
+        color: "#3e45ac"
+        text: "TESThyhwTyjkPPKkQ27T4B3vAuU6iMgwmHWuvNHjGTB8cmdwxExm"
+        font.pixelSize: 16
+        font.family: "Montserrat"
+        anchors.top: labelBi.bottom
+        anchors.topMargin: 5
+        anchors.left: label.left
+        anchors.leftMargin: 0
+        anchors.right: whitebox.right
+        anchors.rightMargin: 30
+    }
+
+    MenuTextField {
+        id: receivingaddressEditBi
+        visible: false
+        height: 52
+        text: "TESThyhwTyjkPPKkQ27T4B3vAuU6iMgwmHWuvNHjGTB8cmdwxExm"
+        bottomPadding: 16
+        font.pixelSize: 16
+        font.family: "Montserrat"
+        padding: 16
+        rightPadding: 16
+        leftPadding: 16
+        topPadding: 16
+        anchors.top: labelBi.bottom
+        anchors.topMargin: 10
+        anchors.left: label.left
+        anchors.leftMargin: 0
+        anchors.right: whitebox.right
+        anchors.rightMargin: 30
+        selectByMouse: true
+        readOnly: true
+    }
+
+    Label {
         id: label1
         color: "#202124"
         text: qsTr("Your nickname to receive BitCash")
@@ -291,6 +343,62 @@ Item {
         readOnly: true
     }
 
+    Label {
+        id: label1Bi
+        color: "#202124"
+        text: qsTr("Your nickname to receive Bitcoin")
+        font.pixelSize: 14
+        font.weight: Font.DemiBold
+        font.family: "Montserrat SemiBold"
+        anchors.top: copynickname.bottom
+        anchors.topMargin: 30
+        anchors.left: whitebox.left
+        anchors.leftMargin: 36
+    }
+
+    property alias receivingnicknameBi: receivingnicknameBi
+    property alias receivingnicknameEditBi: receivingnicknameEditBi
+
+    Label {
+        id: receivingnicknameBi
+        color: "#3e45ac"
+        text: "@test"
+        font.letterSpacing: 0
+        font.family: "Montserrat"
+        font.pixelSize: 18
+        anchors.top: label1Bi.bottom
+        anchors.topMargin: 5
+        anchors.right: whitebox2.right
+        anchors.rightMargin: 30
+        anchors.left: whitebox2.left
+        anchors.leftMargin: 30
+    }
+
+    MenuTextField {
+        id: receivingnicknameEditBi
+        visible: false
+        height: 52
+        text: ""
+        font.letterSpacing: 0
+        font.family: "Montserrat"
+        horizontalAlignment: Text.AlignLeft
+        curPos: 0
+        renderType: Text.QtRendering
+        font.pixelSize: 16
+        padding: 16
+        rightPadding: 16
+        leftPadding: 16
+        topPadding: 16
+        anchors.top: label1Bi.bottom
+        anchors.topMargin: 10
+        anchors.right: whitebox2.right
+        anchors.rightMargin: 36
+        anchors.left: whitebox2.left
+        anchors.leftMargin: 36
+        selectByMouse: true
+        readOnly: true
+    }
+
     property alias copyaddress: copyaddress
     Mybutton {
         id: copyaddress
@@ -308,6 +416,23 @@ Item {
         font.capitalization: Font.MixedCase
     }
 
+    property alias copyaddressBi: copyaddressBi
+    Mybutton {
+        id: copyaddressBi
+        height: 44
+        text: qsTr("Copy BTC address to clipboard")
+        font.weight: Font.DemiBold
+        font.pixelSize: 14
+        font.family: "Montserrat SemiBold"
+        rightPadding: 20
+        leftPadding: 20
+        anchors.top: receivingaddressBi.bottom
+        anchors.topMargin: 20
+        anchors.left: whitebox.left
+        anchors.leftMargin: 30
+        font.capitalization: Font.MixedCase
+    }
+
     property alias copynickname: copynickname
     Mybutton {
         id: copynickname
@@ -319,6 +444,23 @@ Item {
         rightPadding: 20
         leftPadding: 20
         anchors.top: receivingnickname2.bottom
+        anchors.topMargin: 20
+        anchors.left: whitebox2.left
+        anchors.leftMargin: 30
+        font.capitalization: Font.MixedCase
+    }
+
+    property alias copynicknameBi: copynicknameBi
+    Mybutton {
+        id: copynicknameBi
+        height: 44
+        text: qsTr("Copy BTC nickname to clipboard")
+        font.weight: Font.DemiBold
+        font.pixelSize: 14
+        font.family: "Montserrat SemiBold"
+        rightPadding: 20
+        leftPadding: 20
+        anchors.top: receivingnicknameBi.bottom
         anchors.topMargin: 20
         anchors.left: whitebox2.left
         anchors.leftMargin: 30
